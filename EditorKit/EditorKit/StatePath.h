@@ -853,4 +853,116 @@ public:
     {
         return NodeAccessor(this, path);
     }
+
+    // JSON 风格初始化支持
+    class JsonInitializer
+    {
+    private:
+        StatePath* system;
+        std::string path;
+
+        std::string combinePath(const std::string& base, const std::string& rel) const
+        {
+            if (base.empty()) return rel;
+            if (rel.empty()) return base;
+            return base + "/" + rel;
+        }
+
+        // 递归设置值的辅助函数
+        void setValueRecursive(const std::string& currentPath, const JsonValue& jsonValue)
+        {
+            if (jsonValue.isInt())
+            {
+                system->setInt(currentPath, jsonValue.asInt());
+            }
+            else if (jsonValue.isFloat())
+            {
+                system->setFloat(currentPath, jsonValue.asFloat());
+            }
+            else if (jsonValue.isBool())
+            {
+                system->setBool(currentPath, jsonValue.asBool());
+            }
+            else if (jsonValue.isPointer())
+            {
+                system->setPointer(currentPath, jsonValue.asPointer());
+            }
+            else if (jsonValue.isString())
+            {
+                system->setString(currentPath, jsonValue.asString());
+            }
+            else if (jsonValue.isObject())
+            {
+                // 对于嵌套对象，先创建对象节点，然后递归设置子节点
+                system->setObject(currentPath);
+                BaseNode* node = system->getNode(currentPath);
+                if (node && node->getType() == NodeType::OBJECT)
+                {
+                    ObjectNode* objNode = static_cast<ObjectNode*>(node);
+                    for (const auto& childPair : jsonValue.asObject())
+                    {
+                        objNode->setJsonValue(childPair.first, childPair.second);
+                    }
+                }
+            }
+        }
+
+    public:
+        JsonInitializer(StatePath* sys, const std::string& p) : system(sys), path(p) {}
+
+        JsonInitializer operator()(const std::string& subPath)
+        {
+            return JsonInitializer(system, combinePath(path, subPath));
+        }
+
+        // 为 JsonValue 添加赋值操作符重载
+        JsonInitializer& operator=(const JsonValue& jsonValue)
+        {
+            setValueRecursive(path, jsonValue);
+            return *this;
+        }
+
+        // 保留原有的基本类型赋值操作符
+        JsonInitializer& operator=(int value)
+        {
+            system->setInt(path, value);
+            return *this;
+        }
+
+        JsonInitializer& operator=(float value)
+        {
+            system->setFloat(path, value);
+            return *this;
+        }
+
+        JsonInitializer& operator=(bool value)
+        {
+            system->setBool(path, value);
+            return *this;
+        }
+
+        JsonInitializer& operator=(void* value)
+        {
+            system->setPointer(path, value);
+            return *this;
+        }
+
+        JsonInitializer& operator=(const std::string& value)
+        {
+            system->setString(path, value);
+            return *this;
+        }
+
+        JsonInitializer& operator=(const char* value)
+        {
+            system->setString(path, std::string(value));
+            return *this;
+        }
+    };
+
+    // JSON 风格初始化
+    JsonInitializer operator()(const std::string& path)
+    {
+        return JsonInitializer(this, path);
+    }
 };

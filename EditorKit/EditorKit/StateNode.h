@@ -22,6 +22,56 @@ enum class NodeType
     STRING,
     EMPTY
 };
+#include <variant>
+#include <string>
+#include <initializer_list>
+
+// JSON 值类型定义
+class JsonValue
+{
+private:
+    std::variant<int, float, bool, void*, std::string,
+        std::initializer_list<std::pair<std::string, JsonValue>>> value;
+
+public:
+    // 各种构造函数
+    JsonValue(int val) : value(val) {}
+    JsonValue(float val) : value(val) {}
+    JsonValue(bool val) : value(val) {}
+    JsonValue(void* val) : value(val) {}
+    JsonValue(const std::string& val) : value(val) {}
+    JsonValue(const char* val) : value(std::string(val)) {}
+
+    // 嵌套对象初始化
+    JsonValue(std::initializer_list<std::pair<std::string, JsonValue>> initList)
+        : value(initList)
+    {
+    }
+
+    // 类型检查
+    bool isInt() const { return std::holds_alternative<int>(value); }
+    bool isFloat() const { return std::holds_alternative<float>(value); }
+    bool isBool() const { return std::holds_alternative<bool>(value); }
+    bool isPointer() const { return std::holds_alternative<void*>(value); }
+    bool isString() const { return std::holds_alternative<std::string>(value); }
+    bool isObject() const
+    {
+        return std::holds_alternative<std::initializer_list<std::pair<std::string, JsonValue>>>(value);
+    }
+
+    // 值获取
+    int asInt() const { return std::get<int>(value); }
+    float asFloat() const { return std::get<float>(value); }
+    bool asBool() const { return std::get<bool>(value); }
+    void* asPointer() const { return std::get<void*>(value); }
+    std::string asString() const { return std::get<std::string>(value); }
+    auto asObject() const
+    {
+        return std::get<std::initializer_list<std::pair<std::string, JsonValue>>>(value);
+    }
+};
+
+
 
 // 节点基类
 class BaseNode
@@ -482,6 +532,133 @@ public:
         }
 
         return result;
+    }
+
+    class JsonInitializer
+    {
+    private:
+        ObjectNode* parent;
+        std::string relativePath;
+
+        std::string combinePath(const std::string& base, const std::string& rel) const
+        {
+            if (base.empty()) return rel;
+            if (rel.empty()) return base;
+            return base + "/" + rel;
+        }
+
+        // 递归设置值的辅助函数
+        void setValueRecursive(const std::string& currentPath, const JsonValue& jsonValue)
+        {
+            if (jsonValue.isInt())
+            {
+                parent->setInt(currentPath, jsonValue.asInt());
+            }
+            else if (jsonValue.isFloat())
+            {
+                parent->setFloat(currentPath, jsonValue.asFloat());
+            }
+            else if (jsonValue.isBool())
+            {
+                parent->setBool(currentPath, jsonValue.asBool());
+            }
+            else if (jsonValue.isPointer())
+            {
+                parent->setPointer(currentPath, jsonValue.asPointer());
+            }
+            else if (jsonValue.isString())
+            {
+                parent->setString(currentPath, jsonValue.asString());
+            }
+            else if (jsonValue.isObject())
+            {
+                // 对于嵌套对象，先创建对象节点，然后递归设置子节点
+                parent->setObject(currentPath);
+                BaseNode* node = parent->getNode(currentPath);
+                if (node && node->getType() == NodeType::OBJECT)
+                {
+                    ObjectNode* objNode = static_cast<ObjectNode*>(node);
+                    for (const auto& childPair : jsonValue.asObject())
+                    {
+                        objNode->setJsonValue(childPair.first, childPair.second);
+                    }
+                }
+            }
+        }
+
+    public:
+        JsonInitializer(ObjectNode* p, const std::string& path) : parent(p), relativePath(path) {}
+
+        // 支持嵌套对象初始化
+        JsonInitializer operator()(const std::string& subPath)
+        {
+            return JsonInitializer(parent, combinePath(relativePath, subPath));
+        }
+
+        // 为 JsonValue 添加赋值操作符重载
+        JsonInitializer& operator=(const JsonValue& jsonValue)
+        {
+            setValueRecursive(relativePath, jsonValue);
+            return *this;
+        }
+
+        // 保留原有的基本类型赋值操作符
+        JsonInitializer& operator=(int value)
+        {
+            parent->setInt(relativePath, value);
+            return *this;
+        }
+
+        JsonInitializer& operator=(float value)
+        {
+            parent->setFloat(relativePath, value);
+            return *this;
+        }
+
+        JsonInitializer& operator=(bool value)
+        {
+            parent->setBool(relativePath, value);
+            return *this;
+        }
+
+        JsonInitializer& operator=(void* value)
+        {
+            parent->setPointer(relativePath, value);
+            return *this;
+        }
+
+        JsonInitializer& operator=(const std::string& value)
+        {
+            parent->setString(relativePath, value);
+            return *this;
+        }
+
+        JsonInitializer& operator=(const char* value)
+        {
+            parent->setString(relativePath, std::string(value));
+            return *this;
+        }
+    };
+
+    // 辅助函数：设置 JsonValue
+    void setJsonValue(const std::string& relativePath, const JsonValue& jsonValue)
+    {
+        (*this)(relativePath) = jsonValue;
+    }
+
+    // JSON 风格初始化访问器
+    JsonInitializer operator()(const std::string& relativePath)
+    {
+        return JsonInitializer(this, relativePath);
+    }
+
+    // 批量初始化方法
+    void initialize(std::initializer_list<std::pair<std::string, JsonValue>> initList)
+    {
+        for (const auto& pair : initList)
+        {
+            setJsonValue(pair.first, pair.second);
+        }
     }
 
     ~ObjectNode() override

@@ -771,6 +771,49 @@ void demonstrateEventUsage()
     sys.setBool("app/config/fullscreen", true);
 }
 
+void JsonValueTest()
+{
+    // 创建状态路径系统
+    StatePath stateSystem;
+
+    // 使用 JSON 风格初始化 - 现在这是类型安全的
+    stateSystem("Editor") = JsonValue{
+        {"GlobalProperty", JsonValue{
+            {"Color", "blue"},
+            {"Size", 10},
+            {"Visible", true}
+        }},
+        {"PageCount", 3},
+        {"Settings", JsonValue{
+            {"AutoSave", true},
+            {"Theme", "dark"}
+        }}
+    };
+
+    // 或者更简洁的写法（如果编译器支持推导）
+    stateSystem("App") = {
+        {"Window", {
+            {"Width", 1024},
+            {"Height", 768},
+            {"Title", "My Application"}
+        }},
+        {"Version", "1.0.0"}
+    };
+    std::cout << stateSystem.printTree() << std::endl;
+    // 使用 ObjectNode 直接初始化
+    ObjectNode* editorNode = stateSystem.getNode("Editor")->AsObjectNode();
+    if (editorNode)
+    {
+        editorNode->initialize({
+            {"GlobalProperty", {
+                {"Color", "red"},
+                {"Size", 15}
+            }},
+            {"NewPageCount", 5}
+            });
+    }
+}
+
 int main()
 {
     // 运行测试
@@ -826,5 +869,7 @@ int main()
 
         
     }
+
+    JsonValueTest();
     return 0;
 }
