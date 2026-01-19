@@ -555,27 +555,27 @@ public:
     }
 
     // 通过SetValue方法设置值（不自动创建路径，返回是否成功）
-    bool setIntValue(const std::string& path, int value)
+    bool TrySetIntValue(const std::string& path, int value)
     {
         return setValueNoCreate<IntNode, int>(path, value);
     }
 
-    bool setFloatValue(const std::string& path, float value)
+    bool TrySetFloatValue(const std::string& path, float value)
     {
         return setValueNoCreate<FloatNode, float>(path, value);
     }
 
-    bool setBoolValue(const std::string& path, bool value)
+    bool TrySetBoolValue(const std::string& path, bool value)
     {
         return setValueNoCreate<BoolNode, bool>(path, value);
     }
 
-    bool setPointerValue(const std::string& path, void* value)
+    bool TrySetPointerValue(const std::string& path, void* value)
     {
         return setValueNoCreate<PointerNode, void*>(path, value);
     }
 
-    bool setStringValue(const std::string& path, const std::string& value)
+    bool TrySetStringValue(const std::string& path, const std::string& value)
     {
         return setValueNoCreate<StringNode, std::string>(path, value);
     }
@@ -738,6 +738,45 @@ public:
         return false;
     }
 
+    int GetIntValue(const std::string& path, int badValue = 0)
+    {
+        int ret = badValue;
+        getTypedValue<int, IntNode>(path, ret);
+        return ret;
+    }
+
+    // 获取浮点数值
+    float GetFloatValue(const std::string& path, float badValue = 0.0f)
+    {
+        float ret = badValue;
+        getTypedValue<float, FloatNode>(path, ret);
+        return ret;
+    }
+
+    // 获取布尔值
+    bool GetBoolValue(const std::string& path, bool badValue = false)
+    {
+        bool ret = badValue;
+        getTypedValue<bool, BoolNode>(path, ret);
+        return ret;
+    }
+
+    // 获取指针值
+    void* GetPointerValue(const std::string& path, void* badValue = nullptr)
+    {
+        void* ret = badValue;
+        getTypedValue<void*, PointerNode>(path, ret);
+        return ret;
+    }
+
+    // 获取字符串值
+    std::string GetStringValue(const std::string& path, const std::string& badValue = "")
+    {
+        std::string ret = badValue;
+        getTypedValue<std::string, StringNode>(path, ret);
+        return ret;
+    }
+
     // 打印整个树
     std::string printTree() const
     {
@@ -751,6 +790,12 @@ public:
         StatePath* system;
         std::string path;
 
+        std::string combinePath(const std::string& base, const std::string& rel) const
+        {
+            if (base.empty()) return rel;
+            if (rel.empty()) return base;
+            return base + "/" + rel;
+        }
     public:
         NodeAccessor(StatePath* sys, const std::string& p) : system(sys), path(p) {}
 
@@ -787,11 +832,56 @@ public:
         bool get(void*& outValue) const { return system->getPointer(path, outValue); }
         bool get(std::string& outValue) const { return system->getString(path, outValue); }
 
+        // 获取整数值，失败时返回默认值
+        int GetIntValue(int badValue = 0)
+        {
+            int ret = badValue;
+            system->getInt(path, ret);
+            return ret;
+        }
+
+        // 获取浮点数值，失败时返回默认值
+        float GetFloatValue(float badValue = 0.0f)
+        {
+            float ret = badValue;
+            system->getFloat(path, ret);
+            return ret;
+        }
+
+        // 获取布尔值，失败时返回默认值
+        bool GetBoolValue(bool badValue = false)
+        {
+            bool ret = badValue;
+            system->getBool(path, ret);
+            return ret;
+        }
+
+        // 获取指针值，失败时返回默认值
+        void* GetPointerValue(void* badValue = nullptr)
+        {
+            void* ret = badValue;
+            system->getPointer(path, ret);
+            return ret;
+        }
+
+        // 获取字符串值，失败时返回默认值
+        std::string GetStringValue(const std::string& badValue = "")
+        {
+            std::string ret = badValue;
+            system->getString(path, ret);
+            return ret;
+        }
+
         // 通用获取值
         template<typename T>
         bool getValue(T& outValue) const
         {
             return system->getValue<T>(path, outValue);
+        }
+
+        NodeAccessor operator[](const std::string& subPath)
+        {
+            return NodeAccessor(system, combinePath(path, subPath));
         }
     };
 

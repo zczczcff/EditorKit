@@ -204,13 +204,13 @@ private:
 
         // 测试值更新（不创建新节点）
         system.setInt("advanced/value", 10);
-        bool updated = system.setIntValue("advanced/value", 20);
+        bool updated = system.TrySetIntValue("advanced/value", 20);
         int finalValue = 0;
         system.getInt("advanced/value", finalValue);
         checkResult(updated && finalValue == 20, "值更新不创建节点");
 
         // 测试不存在的节点值更新
-        bool updateFailed = system.setIntValue("advanced/nonexistent", 30);
+        bool updateFailed = system.TrySetIntValue("advanced/nonexistent", 30);
         checkResult(!updateFailed, "不存在节点值更新失败");
 
         // 测试指针节点
@@ -791,10 +791,10 @@ int main()
     // 设置值
     stateSystem.setInt("root/player/health", 100);
     stateSystem.setString("root/player/name", "John");
-
+    stateSystem["root"]["player"]["name"]="John";
     // 获取节点并进行路径操作
     BaseNode* playerNode = stateSystem.getNode("root/player");
-    if (ObjectNode* objPlayerNode = dynamic_cast<ObjectNode*>(playerNode))
+    if (ObjectNode* objPlayerNode = playerNode->AsObjectNode())
     {
         // 方法1：使用相对路径操作接口
         objPlayerNode->setInt("level", 5);           // 设置 "root/player/level"
@@ -807,18 +807,18 @@ int main()
         (*objPlayerNode)["alive"] = true;
 
         // 链式[]操作符支持
-        //(*objPlayerNode)["position"]["x"] = 15.0f;
-        //(*objPlayerNode)["inventory"]["weapon"]["damage"] = 50;
+        (*objPlayerNode)["position"]["x"] = 15.0f;
+        (*objPlayerNode)["inventory"]["weapon"]["damage"] = 50;
 
         // 获取值
-        int level = (*objPlayerNode)["level"];           // 类型转换
-        float posX = (*objPlayerNode)["position/x"];
-        std::string name = (*objPlayerNode)["name"];
+        int level = (*objPlayerNode)["level"].GetIntValue();           // 类型转换
+        float posX = (*objPlayerNode)["position/x"].GetFloatValue();
+        std::string name = (*objPlayerNode)["name"].GetStringValue();
 
         // 检查节点是否存在
         if ((*objPlayerNode)["level"].exists())
         {
-            std::cout << "Level exists: " << (int)(*objPlayerNode)["level"] << std::endl;
+            std::cout << "Level exists: " << (int)(*objPlayerNode)["level"].GetIntValue() << std::endl;
         }
 
         // 获取节点类型

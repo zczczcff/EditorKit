@@ -111,3 +111,57 @@ bool ObjectNode::removeNode(const std::string& relativePath)
     }
     return false;
 }
+
+IntNode* BaseNode::AsIntNode()
+{
+    if (getType() == NodeType::INT)
+    {
+        return static_cast<IntNode*>(this);
+    }
+    return nullptr;
+}
+
+FloatNode* BaseNode::AsFloatNode()
+{
+    if (getType() == NodeType::FLOAT)
+    {
+        return static_cast<FloatNode*>(this);
+    }
+    return nullptr;
+}
+
+BoolNode* BaseNode::AsBoolNode()
+{
+    if (getType() == NodeType::BOOL)
+    {
+        return static_cast<BoolNode*>(this);
+    }
+    return nullptr;
+}
+
+PointerNode* BaseNode::AsPointerNode()
+{
+    if (getType() == NodeType::POINTER)
+    {
+        return static_cast<PointerNode*>(this);
+    }
+    return nullptr;
+}
+
+StringNode* BaseNode::AsStringNode()
+{
+    if (getType() == NodeType::STRING)
+    {
+        return static_cast<StringNode*>(this);
+    }
+    return nullptr;
+}
+
+ObjectNode* BaseNode::AsObjectNode()
+{
+    if (getType() == NodeType::OBJECT)
+    {
+        return static_cast<ObjectNode*>(this);
+    }
+    return nullptr;
+}

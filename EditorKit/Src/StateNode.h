@@ -11,7 +11,7 @@ class BoolNode;
 class PointerNode;
 class StringNode;
 class ObjectNode;
-
+class StatePath;
 enum class NodeType
 {
     OBJECT,
@@ -48,6 +48,13 @@ public:
 
     // 新增：树形打印方法（|-- 样式）
     virtual std::string printTreeStyle(const std::string& prefix = "", bool isLast = true) const = 0;
+
+    IntNode* AsIntNode();
+    FloatNode* AsFloatNode();
+    BoolNode* AsBoolNode();
+    PointerNode* AsPointerNode();
+    StringNode* AsStringNode();
+    ObjectNode* AsObjectNode();
 };
 
 // 空节点
@@ -317,21 +324,20 @@ public:
             return NodeAccessor(parent, combinePath(relativePath, subPath));
         }
 
-        // 类型转换操作符（用于获取值）
-        operator int() const
+        int GetIntValue(int badValue = 0)
         {
-            int value = 0;
-            BaseNode* node = parent->getNode(relativePath);
-            if (node && node->getType() == NodeType::INT)
-            {
-                value = static_cast<IntNode*>(node)->getValue();
-            }
-            return value;
+			int value = badValue;
+			BaseNode* node = parent->getNode(relativePath);
+			if (node && node->getType() == NodeType::INT)
+			{
+				value = static_cast<IntNode*>(node)->getValue();
+			}
+			return value;
         }
 
-        operator float() const
+        float GetFloatValue(float badValue = 0.0f)
         {
-            float value = 0.0f;
+            float value = badValue;
             BaseNode* node = parent->getNode(relativePath);
             if (node && node->getType() == NodeType::FLOAT)
             {
@@ -340,9 +346,9 @@ public:
             return value;
         }
 
-        operator bool() const
+        bool GetBoolValue(bool badValue = false)
         {
-            bool value = false;
+            bool value = badValue;
             BaseNode* node = parent->getNode(relativePath);
             if (node && node->getType() == NodeType::BOOL)
             {
@@ -351,9 +357,9 @@ public:
             return value;
         }
 
-        operator void* () const
+        void* GetPointerValue(void* badValue = nullptr)
         {
-            void* value = nullptr;
+            void* value = badValue;
             BaseNode* node = parent->getNode(relativePath);
             if (node && node->getType() == NodeType::POINTER)
             {
@@ -362,9 +368,9 @@ public:
             return value;
         }
 
-        operator std::string() const
+        std::string GetStringValue(const std::string& badValue = "")
         {
-            std::string value;
+            std::string value = badValue;
             BaseNode* node = parent->getNode(relativePath);
             if (node && node->getType() == NodeType::STRING)
             {
@@ -372,6 +378,62 @@ public:
             }
             return value;
         }
+
+        // 类型转换操作符（用于获取值）
+        //operator int() const
+        //{
+        //    int value = 0;
+        //    BaseNode* node = parent->getNode(relativePath);
+        //    if (node && node->getType() == NodeType::INT)
+        //    {
+        //        value = static_cast<IntNode*>(node)->getValue();
+        //    }
+        //    return value;
+        //}
+
+        //operator float() const
+        //{
+        //    float value = 0.0f;
+        //    BaseNode* node = parent->getNode(relativePath);
+        //    if (node && node->getType() == NodeType::FLOAT)
+        //    {
+        //        value = static_cast<FloatNode*>(node)->getValue();
+        //    }
+        //    return value;
+        //}
+
+        //operator bool() const
+        //{
+        //    bool value = false;
+        //    BaseNode* node = parent->getNode(relativePath);
+        //    if (node && node->getType() == NodeType::BOOL)
+        //    {
+        //        value = static_cast<BoolNode*>(node)->getValue();
+        //    }
+        //    return value;
+        //}
+
+        //operator void* () const
+        //{
+        //    void* value = nullptr;
+        //    BaseNode* node = parent->getNode(relativePath);
+        //    if (node && node->getType() == NodeType::POINTER)
+        //    {
+        //        value = static_cast<PointerNode*>(node)->getValue();
+        //    }
+        //    return value;
+        //}
+
+        //operator std::string() const
+        //{
+        //    std::string value;
+        //    BaseNode* node = parent->getNode(relativePath);
+        //    if (node && node->getType() == NodeType::STRING)
+        //    {
+        //        value = static_cast<StringNode*>(node)->getValue();
+        //    }
+        //    return value;
+        //}
 
         // 检查节点是否存在
         bool exists() const
