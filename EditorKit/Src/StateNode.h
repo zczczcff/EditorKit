@@ -22,19 +22,6 @@ enum class NodeType
     STRING,
     EMPTY
 };
-// 访问者模式基类
-class NodeVisitor
-{
-public:
-    virtual ~NodeVisitor() = default;
-    virtual void visit(IntNode* node) = 0;
-    virtual void visit(FloatNode* node) = 0;
-    virtual void visit(BoolNode* node) = 0;
-    virtual void visit(PointerNode* node) = 0;
-    virtual void visit(StringNode* node) = 0;
-    virtual void visit(ObjectNode* node) = 0;
-    virtual void visit(BaseNode* node) = 0; // 用于Unknown类型
-};
 
 // 节点基类
 class BaseNode
@@ -42,7 +29,6 @@ class BaseNode
 public:
     virtual ~BaseNode() = default;
     virtual NodeType getType() const = 0;
-    virtual void accept(NodeVisitor& visitor) = 0;
     // 新增：简洁的节点内容描述
     virtual std::string getContent() const = 0;
 
@@ -63,10 +49,6 @@ class EmptyNode : public BaseNode
 public:
     NodeType getType() const override { return NodeType::EMPTY; }
     static NodeType getStaticType() { return NodeType::EMPTY; }
-    void accept(NodeVisitor& visitor) override
-    {
-        visitor.visit(this);
-    }
 
     std::string getContent() const override
     {
@@ -93,10 +75,6 @@ public:
     int getValue() const { return value; }
     void setValue(int val) { value = val; }
 
-    void accept(NodeVisitor& visitor) override
-    {
-        visitor.visit(this);
-    }
     std::string getContent() const override
     {
         return "[Int: " + std::to_string(value) + "]";
@@ -120,11 +98,6 @@ public:
     static NodeType getStaticType() { return NodeType::FLOAT; }
     float getValue() const { return value; }
     void setValue(float val) { value = val; }
-
-    void accept(NodeVisitor& visitor) override
-    {
-        visitor.visit(this);
-    }
 
     std::string getContent() const override
     {
@@ -150,11 +123,6 @@ public:
     bool getValue() const { return value; }
     void setValue(bool val) { value = val; }
 
-    void accept(NodeVisitor& visitor) override
-    {
-        visitor.visit(this);
-    }
-
     std::string getContent() const override
     {
         return "[Bool: " + std::string(value ? "true" : "false") + "]";
@@ -178,11 +146,6 @@ public:
     static NodeType getStaticType() { return NodeType::POINTER; }
     void* getValue() const { return value; }
     void setValue(void* val) { value = val; }
-
-    void accept(NodeVisitor& visitor) override
-    {
-        visitor.visit(this);
-    }
 
     std::string getContent() const override
     {
@@ -210,11 +173,6 @@ public:
     static NodeType getStaticType() { return NodeType::STRING; }
     const std::string& getValue() const { return value; }
     void setValue(const std::string& val) { value = val; }
-
-    void accept(NodeVisitor& visitor) override
-    {
-        visitor.visit(this);
-    }
 
     std::string getContent() const override
     {
@@ -245,10 +203,6 @@ public:
     NodeType getType() const override { return NodeType::OBJECT; }
     static NodeType getStaticType() { return NodeType::OBJECT; }
 
-    void accept(NodeVisitor& visitor) override
-    {
-        visitor.visit(this);
-    }
     // 路径信息
     std::string getAbsolutePath() const{ return absolutePath; }
     StatePath* getStateSystem() const{ return stateSystem; }
@@ -378,62 +332,6 @@ public:
             }
             return value;
         }
-
-        // 类型转换操作符（用于获取值）
-        //operator int() const
-        //{
-        //    int value = 0;
-        //    BaseNode* node = parent->getNode(relativePath);
-        //    if (node && node->getType() == NodeType::INT)
-        //    {
-        //        value = static_cast<IntNode*>(node)->getValue();
-        //    }
-        //    return value;
-        //}
-
-        //operator float() const
-        //{
-        //    float value = 0.0f;
-        //    BaseNode* node = parent->getNode(relativePath);
-        //    if (node && node->getType() == NodeType::FLOAT)
-        //    {
-        //        value = static_cast<FloatNode*>(node)->getValue();
-        //    }
-        //    return value;
-        //}
-
-        //operator bool() const
-        //{
-        //    bool value = false;
-        //    BaseNode* node = parent->getNode(relativePath);
-        //    if (node && node->getType() == NodeType::BOOL)
-        //    {
-        //        value = static_cast<BoolNode*>(node)->getValue();
-        //    }
-        //    return value;
-        //}
-
-        //operator void* () const
-        //{
-        //    void* value = nullptr;
-        //    BaseNode* node = parent->getNode(relativePath);
-        //    if (node && node->getType() == NodeType::POINTER)
-        //    {
-        //        value = static_cast<PointerNode*>(node)->getValue();
-        //    }
-        //    return value;
-        //}
-
-        //operator std::string() const
-        //{
-        //    std::string value;
-        //    BaseNode* node = parent->getNode(relativePath);
-        //    if (node && node->getType() == NodeType::STRING)
-        //    {
-        //        value = static_cast<StringNode*>(node)->getValue();
-        //    }
-        //    return value;
-        //}
 
         // 检查节点是否存在
         bool exists() const

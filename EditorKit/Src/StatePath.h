@@ -242,82 +242,6 @@ private:
     static NodeType getStaticTypeFor(PointerNode* node) { return NodeType::POINTER; }
     static NodeType getStaticTypeFor(StringNode* node) { return NodeType::STRING; }
 
-    // 节点类型访问者
-    class TypeCheckVisitor : public NodeVisitor
-    {
-    private:
-        NodeType nodeType;
-    public:
-        TypeCheckVisitor() : nodeType(NodeType::EMPTY) {}
-
-        void visit(IntNode* node) override { nodeType = NodeType::INT; }
-        void visit(FloatNode* node) override { nodeType = NodeType::FLOAT; }
-        void visit(BoolNode* node) override { nodeType = NodeType::BOOL; }
-        void visit(PointerNode* node) override { nodeType = NodeType::POINTER; }
-        void visit(StringNode* node) override { nodeType = NodeType::STRING; }
-        void visit(ObjectNode* node) override { nodeType = NodeType::OBJECT; }
-        void visit(BaseNode* node) override { nodeType = NodeType::EMPTY; }
-
-        NodeType getType() const { return nodeType; }
-    };
-
-    // 值获取访问者
-    template<typename T>
-    class ValueGetterVisitor : public NodeVisitor
-    {
-    private:
-        T value;
-        bool valid;
-    public:
-        ValueGetterVisitor() : value(), valid(false) {}
-
-        void visit(IntNode* node) override
-        {
-            if constexpr (std::is_same_v<T, int>)
-            {
-                value = node->getValue();
-                valid = true;
-            }
-        }
-        void visit(FloatNode* node) override
-        {
-            if constexpr (std::is_same_v<T, float>)
-            {
-                value = node->getValue();
-                valid = true;
-            }
-        }
-        void visit(BoolNode* node) override
-        {
-            if constexpr (std::is_same_v<T, bool>)
-            {
-                value = node->getValue();
-                valid = true;
-            }
-        }
-        void visit(PointerNode* node) override
-        {
-            if constexpr (std::is_same_v<T, void*>)
-            {
-                value = node->getValue();
-                valid = true;
-            }
-        }
-        void visit(StringNode* node) override
-        {
-            if constexpr (std::is_same_v<T, std::string>)
-            {
-                value = node->getValue();
-                valid = true;
-            }
-        }
-        void visit(ObjectNode* node) override { valid = false; }
-        void visit(BaseNode* node) override { valid = false; }
-
-        T getValue() const { return value; }
-        bool isValid() const { return valid; }
-    };
-
 public:
     StatePath() : errorCallback(defaultErrorHandler)
     {
@@ -728,13 +652,53 @@ public:
         BaseNode* node = getNode(path);
         if (!node) return false;
 
-        ValueGetterVisitor<T> visitor;
-        node->accept(visitor);
-        if (visitor.isValid())
+        // 使用AsXXNode方法进行类型转换和值获取
+        if constexpr (std::is_same_v<T, int>)
         {
-            outValue = visitor.getValue();
-            return true;
+            IntNode* intNode = node->AsIntNode();
+            if (intNode)
+            {
+                outValue = intNode->getValue();
+                return true;
+            }
         }
+        else if constexpr (std::is_same_v<T, float>)
+        {
+            FloatNode* floatNode = node->AsFloatNode();
+            if (floatNode)
+            {
+                outValue = floatNode->getValue();
+                return true;
+            }
+        }
+        else if constexpr (std::is_same_v<T, bool>)
+        {
+            BoolNode* boolNode = node->AsBoolNode();
+            if (boolNode)
+            {
+                outValue = boolNode->getValue();
+                return true;
+            }
+        }
+        else if constexpr (std::is_same_v<T, void*>)
+        {
+            PointerNode* pointerNode = node->AsPointerNode();
+            if (pointerNode)
+            {
+                outValue = pointerNode->getValue();
+                return true;
+            }
+        }
+        else if constexpr (std::is_same_v<T, std::string>)
+        {
+            StringNode* stringNode = node->AsStringNode();
+            if (stringNode)
+            {
+                outValue = stringNode->getValue();
+                return true;
+            }
+        }
+
         return false;
     }
 
