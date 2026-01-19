@@ -7,18 +7,18 @@ set(EDITORKIT_VERSION "${EDITORKIT_VERSION_MAJOR}.${EDITORKIT_VERSION_MINOR}.${E
 # 递归查找所有源文件
 # 注意：使用GLOB时，如果添加新文件需要重新运行cmake
 file(GLOB_RECURSE EDITORKIT_SOURCES
-    "${CMAKE_CURRENT_SOURCE_DIR}/Src/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Src/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Src/*.cc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Src/*.cxx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/EditorKit/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/EditorKit/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/EditorKit/*.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/EditorKit/*.cxx"
 )
 
 file(GLOB_RECURSE EDITORKIT_HEADERS
-    "${CMAKE_CURRENT_SOURCE_DIR}/Src/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Src/*.hpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Src/*.hh"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Src/*.hxx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Src/*.inl"
+    "${CMAKE_CURRENT_SOURCE_DIR}/EditorKit/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/EditorKit/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/EditorKit/*.hh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/EditorKit/*.hxx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/EditorKit/*.inl"
 )
 
 # 打印源文件信息用于调试
@@ -56,7 +56,7 @@ set_target_properties(EditorKit PROPERTIES
 if(TARGET EditorKit)
     target_include_directories(EditorKit
         PUBLIC 
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Src>
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
             $<INSTALL_INTERFACE:include>
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
