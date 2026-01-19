@@ -1,0 +1,245 @@
+# 编译生成的文件
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+
+# CMake 构建目录
+build/
+Build/
+out/
+out-build/
+*_build/
+_build/
+_cmake-build*/
+cmake-build-*/
+CMakeFiles/
+CTestTestfile.cmake
+CMakeCache.txt
+cmake_install.cmake
+CMakeUserPresets.json
+CPackConfig.cmake
+CPackSourceConfig.cmake
+*.cmake
+compile_commands.json
+Makefile
+cmake-build/
+cmake-out/
+
+# EditorKit 库的输出
+lib/
+bin/
+
+# 编辑器/IDE 文件
+.vscode/
+.vs/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.code-workspace
+.project
+.cproject
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# 编译器临时文件
+*.ilk
+*.pdb
+*.pch
+*.idb
+*.pgd
+*.db
+*.opendb
+*.suo
+*.sdf
+*.opensdf
+*.user
+*.aps
+*.ncb
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+x64/
+x86/
+Win32/
+Debug/
+Release/
+RelWithDebInfo/
+MinSizeRel/
+
+# 静态分析器
+*.plist
+
+# 测试覆盖率
+*.gcda
+*.gcno
+*.gcov
+*.lcov
+coverage/
+cover/
+
+# 依赖管理
+.vcpkg/
+conan/
+conanfile.txt
+conanfile.py
+conan.lock
+conaninfo.txt
+conanbuildinfo.cmake
+graph_info.json
+CMakeUserPresets.json
+
+# 文档
+docs/html/
+docs/latex/
+*.aux
+*.toc
+*.out
+*.log
+*.bbl
+*.blg
+*.dvi
+*.pdf
+*.ps
+*.idx
+*.ilg
+*.ind
+
+# 日志文件
+*.log
+*.tlog
+*.lastbuildstate
+*.cache
+
+# 包和分发
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+dist/
+package/
+
+# 临时文件
+*.tmp
+*.temp
+*_temp.*
+temp/
+tmp/
+
+# 备份文件
+*.bak
+*.backup
+*.old
+*.orig
+*~
+
+# 平台特定文件
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# Linux/Unix
+*~
+.fuse_hidden*
+.directory
+.trash-*
+.nfs*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+
+# 自动生成的文档
+doc/api/
+doc/doxygen/
+
+# 单元测试输出
+TestResults/
+*.trx
+*.testlog
+TestLog.*
+*.lastfailed
+*.passed
+
+# Benchmark 结果
+benchmark_results/
+perf.data
+perf.data.old
+flamegraph.svg
+
+# 编译数据库
+compile_commands.json
+
+# 预编译头文件
+*.gch
+*.pch
+
+# 动态库版本
+*.dylib.*
+*.so.*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# 其他
+*.db
+*.sqlite
+*.sqlite3
+.tmp
+.cache
+.vagrant/
+.ssh/
+*.sass-cache
+node_modules/
+yarn.lock
+package-lock.json
