@@ -15,6 +15,7 @@
 #include <utility>
 #include <random>
 #include <iomanip>
+#include "Type_Check.h"
 
 //！！！重要说明！！！
 /*
@@ -33,65 +34,6 @@ enum class SubscriptionMode
     Unicast     // 单播模式：一个事件只能有一个订阅者，后订阅的覆盖先订阅的
 };
 
-// 编译期类型检查工具
-namespace type_check
-{
-    // 检查类型是否为值类型（非引用）
-    template<typename T>
-    struct is_value_type
-    {
-        static constexpr bool value = !std::is_reference_v<T>;
-    };
-
-    // 检查类型包中所有类型是否为值类型
-    template<typename... Args>
-    struct all_value_types
-    {
-        static constexpr bool value = (is_value_type<Args>::value && ...);
-    };
-
-    // 编译期断言 - 如果包含引用类型则报错
-    template<typename... Args>
-    constexpr void assert_value_types()
-    {
-        static_assert(all_value_types<Args...>::value,
-            "All parameters must be value types (non-reference). References are not allowed for thread safety.");
-    }
-
-    // 获取类型名称的辅助函数
-    template<typename T>
-    std::string get_type_name()
-    {
-        if constexpr (std::is_reference_v<T>)
-        {
-            if constexpr (std::is_lvalue_reference_v<T>)
-            {
-                return std::string(typeid(std::remove_reference_t<T>).name()) + "&";
-            }
-            else
-            {
-                return std::string(typeid(std::remove_reference_t<T>).name()) + "&&";
-            }
-        }
-        else
-        {
-            return std::string(typeid(T).name());
-        }
-    }
-
-    // C++17兼容的元组类型检查辅助类
-    template<typename Tuple>
-    struct tuple_value_type_checker;
-
-    template<typename... Ts>
-    struct tuple_value_type_checker<std::tuple<Ts...>>
-    {
-        static void check()
-        {
-            assert_value_types<Ts...>();
-        }
-    };
-}
 
 // UUID实现
 class UUID
