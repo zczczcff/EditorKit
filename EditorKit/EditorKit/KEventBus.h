@@ -703,7 +703,7 @@ private:
                 if (onceIt != unicastOnceEventHandlers_.end())
                 {
                     Unsubscribe(onceIt->second);
-                    unicastOnceEventHandlers_.erase(onceIt);
+                    //unicastOnceEventHandlers_.erase(onceIt);
                 }
             }
             else
