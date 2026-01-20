@@ -86,3 +86,30 @@ namespace type_check
         }
     };
 }
+
+// 函数特征提取
+template<typename T>
+struct function_traits;
+
+template<typename Ret, typename... Args>
+struct function_traits<Ret(Args...)>
+{
+    using return_type = Ret;
+    using argument_types = std::tuple<Args...>;
+    static constexpr size_t arity = sizeof...(Args);
+
+    template <size_t I>
+    using arg_type = typename std::tuple_element<I, std::tuple<Args...>>::type;
+};
+
+template<typename Ret, typename... Args>
+struct function_traits<Ret(*)(Args...)> : function_traits<Ret(Args...)> {};
+
+template<typename Ret, typename Class, typename... Args>
+struct function_traits<Ret(Class::*)(Args...)> : function_traits<Ret(Args...)> {};
+
+template<typename Ret, typename Class, typename... Args>
+struct function_traits<Ret(Class::*)(Args...) const> : function_traits<Ret(Args...)> {};
+
+template<typename Callable>
+struct function_traits : function_traits<decltype(&Callable::operator())> {};
