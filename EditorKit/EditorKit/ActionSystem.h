@@ -807,7 +807,7 @@ private:
     {
         using traits = function_traits<std::decay_t<Callable>>;
         static_assert(std::is_same_v<typename traits::return_type, bool>,
-            "验证器必须返回bool类型");
+            "Validator must return bool type  验证器必须返回bool类型");
 
         // 根据参数数量分派
         if constexpr (traits::arity == 0)
