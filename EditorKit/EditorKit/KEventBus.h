@@ -36,24 +36,24 @@ enum class SubscriptionMode
 
 
 // UUID实现
-class UUID
+class EventID
 {
 private:
     uint64_t data_[2]; // 128位UUID
 
 public:
-    UUID() : data_{ 0, 0 } {}
+    EventID() : data_{ 0, 0 } {}
 
-    UUID(uint64_t part1, uint64_t part2) : data_{ part1, part2 } {}
+    EventID(uint64_t part1, uint64_t part2) : data_{ part1, part2 } {}
 
     // 生成UUID
-    static UUID generate()
+    static EventID generate()
     {
         static std::random_device rd;
         static std::mt19937_64 gen(rd());
         static std::uniform_int_distribution<uint64_t> dis;
 
-        return UUID(dis(gen), dis(gen));
+        return EventID(dis(gen), dis(gen));
     }
 
     // 转换为字符串
@@ -67,12 +67,12 @@ public:
     }
 
     // 比较操作符
-    bool operator==(const UUID& other) const
+    bool operator==(const EventID& other) const
     {
         return data_[0] == other.data_[0] && data_[1] == other.data_[1];
     }
 
-    bool operator<(const UUID& other) const
+    bool operator<(const EventID& other) const
     {
         if (data_[0] != other.data_[0]) return data_[0] < other.data_[0];
         return data_[1] < other.data_[1];
@@ -81,7 +81,7 @@ public:
     // 哈希函数支持
     struct Hash
     {
-        size_t operator()(const UUID& uuid) const
+        size_t operator()(const EventID& uuid) const
         {
             return std::hash<uint64_t>{}(uuid.data_[0]) ^
                 (std::hash<uint64_t>{}(uuid.data_[1]) << 1);
@@ -186,18 +186,18 @@ std::string GetTemplateArgsInfo()
 class IEventFunction
 {
 protected:
-    UUID token_;
+    EventID token_;
     std::string description_;
     SubscriptionMode mode_;
 
 public:
-    IEventFunction(const UUID& token, const std::string& description, SubscriptionMode mode)
+    IEventFunction(const EventID& token, const std::string& description, SubscriptionMode mode)
         : token_(token), description_(description), mode_(mode)
     {
     }
     virtual ~IEventFunction() = default;
 
-    const UUID& GetToken() const { return token_; }
+    const EventID& GetToken() const { return token_; }
     const std::string& GetDescription() const { return description_; }
     SubscriptionMode GetMode() const { return mode_; }
     virtual std::string GetArgTypes() const = 0;
@@ -211,7 +211,7 @@ class EventFunctionImpl : public IEventFunction
 public:
     using HandlerType = std::function<void(Args...)>;
 
-    EventFunctionImpl(HandlerType delegate, const UUID& token, const std::string& description, SubscriptionMode mode)
+    EventFunctionImpl(HandlerType delegate, const EventID& token, const std::string& description, SubscriptionMode mode)
         : IEventFunction(token, description, mode), delegate_(std::move(delegate))
     {
         // 编译期检查参数类型
@@ -244,7 +244,7 @@ class EventBus
 public:
     // 订阅接口 - 支持lambda直接传递（默认多播模式）
     template <typename Callable>
-    UUID Subscribe(const EventKeyType& eventName, Callable&& handler,
+    EventID Subscribe(const EventKeyType& eventName, Callable&& handler,
         const std::string& description = std::string(), bool once = false)
     {
         return SubscribeImpl(eventName, std::forward<Callable>(handler), description, once, SubscriptionMode::Multicast);
@@ -252,7 +252,7 @@ public:
 
     // 订阅接口 - 指定订阅模式
     template <typename Callable>
-    UUID Subscribe(const EventKeyType& eventName, Callable&& handler,
+    EventID Subscribe(const EventKeyType& eventName, Callable&& handler,
         SubscriptionMode mode, const std::string& description = std::string(), bool once = false)
     {
         return SubscribeImpl(eventName, std::forward<Callable>(handler), description, once, mode);
@@ -260,7 +260,7 @@ public:
 
     // 订阅单播事件接口 - 简化单播订阅
     template <typename Callable>
-    UUID SubscribeUnicast(const EventKeyType& eventName, Callable&& handler,
+    EventID SubscribeUnicast(const EventKeyType& eventName, Callable&& handler,
         const std::string& description = std::string(), bool once = false)
     {
         return SubscribeImpl(eventName, std::forward<Callable>(handler), description, once, SubscriptionMode::Unicast);
@@ -268,7 +268,7 @@ public:
 
     // 订阅接口 - 使用std::function指定类型（多播模式）
     template <typename... Args>
-    UUID Subscribe(const EventKeyType& eventName,
+    EventID Subscribe(const EventKeyType& eventName,
         std::function<void(Args...)> handler,
         const std::string& description = std::string(),
         bool once = false)
@@ -280,7 +280,7 @@ public:
 
     // 订阅接口 - 使用std::function指定类型和订阅模式
     template <typename... Args>
-    UUID Subscribe(const EventKeyType& eventName,
+    EventID Subscribe(const EventKeyType& eventName,
         std::function<void(Args...)> handler,
         SubscriptionMode mode,
         const std::string& description = std::string(),
@@ -292,7 +292,7 @@ public:
     }
 
     // 取消订阅
-    bool Unsubscribe(const UUID& token);
+    bool Unsubscribe(const EventID& token);
 
     // 发布事件（默认多播模式）
     template <typename... Args>
@@ -343,7 +343,7 @@ public:
 
 private:
     template <typename Callable>
-    UUID SubscribeImpl(const EventKeyType& eventName, Callable&& handler,
+    EventID SubscribeImpl(const EventKeyType& eventName, Callable&& handler,
         const std::string& description, bool once, SubscriptionMode mode)
     {
         using traits = function_traits<std::decay_t<Callable>>;
@@ -523,20 +523,20 @@ private:
             else
             {
                 static_assert(traits::arity <= 9, "最多支持9个参数");
-                return UUID();
+                return EventID();
             }
         }
     }
 
     // 详细的订阅实现
     template <typename... Args>
-    UUID SubscribeDetailed(const EventKeyType& eventName,
+    EventID SubscribeDetailed(const EventKeyType& eventName,
         std::function<void(Args...)> handler,
         const std::string& description,
         bool once,
         SubscriptionMode mode)
     {
-        UUID token = UUID::generate();
+        EventID token = EventID::generate();
 
         // 创建委托
         auto delegate = std::make_unique<EventFunctionImpl<Args...>>(
@@ -640,7 +640,7 @@ private:
             }
 
             // 临时存储需要移除的一次性事件Token
-            std::vector<UUID> tokensToRemove;
+            std::vector<EventID> tokensToRemove;
             bool hasAnySuccessfulExecution = false;
 
             // 遍历所有订阅者
@@ -709,18 +709,18 @@ private:
     std::unordered_map<EventKeyType, std::unique_ptr<IEventFunction>, Hash> unicastEventHandlers_;
 
     // 存储多播一次性事件 - 使用自定义哈希函数
-    std::unordered_map<EventKeyType, std::vector<UUID>, Hash> multicastOnceEventHandlers_;
+    std::unordered_map<EventKeyType, std::vector<EventID>, Hash> multicastOnceEventHandlers_;
 
     // 存储单播一次性事件 - 使用自定义哈希函数
-    std::unordered_map<EventKeyType, UUID, Hash> unicastOnceEventHandlers_;
+    std::unordered_map<EventKeyType, EventID, Hash> unicastOnceEventHandlers_;
 
     // Token到事件名称映射（使用UUID的哈希函数）
-    std::unordered_map<UUID, EventKeyType, UUID::Hash> tokenToEventNameMap_;
+    std::unordered_map<EventID, EventKeyType, EventID::Hash> tokenToEventNameMap_;
 };
 
 // 取消订阅实现
 template<typename EventKeyType, typename Hash>
-bool EventBus<EventKeyType, Hash>::Unsubscribe(const UUID& token)
+bool EventBus<EventKeyType, Hash>::Unsubscribe(const EventID& token)
 {
     auto it = tokenToEventNameMap_.find(token);
     if (it == tokenToEventNameMap_.end())

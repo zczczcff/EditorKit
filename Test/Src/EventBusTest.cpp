@@ -122,7 +122,7 @@ TEST_CASE("EventBus 基本功能测试", "[EventBus]") {
         REQUIRE(handler2Called == true);
         
         // 取消不存在的token应该返回false
-        REQUIRE(bus.Unsubscribe(UUID::generate()) == false);
+        REQUIRE(bus.Unsubscribe(EventID::generate()) == false);
     }
 }
 
@@ -409,22 +409,22 @@ TEST_CASE("EventBus 统计信息测试", "[EventBus]") {
 //    }
 //}
 
-TEST_CASE("UUID 功能测试", "[UUID]") {
-    SECTION("UUID 生成和比较") {
-        UUID uuid1 = UUID::generate();
-        UUID uuid2 = UUID::generate();
+TEST_CASE("EventID 功能测试", "[EventID]") {
+    SECTION("EventID 生成和比较") {
+        EventID uuid1 = EventID::generate();
+        EventID uuid2 = EventID::generate();
         
         REQUIRE(uuid1 == uuid1);
         REQUIRE((uuid1 < uuid2 || uuid2 < uuid1)); // 至少有一个为真
         REQUIRE_FALSE(uuid1 == uuid2);
         
         // 测试哈希
-        UUID::Hash hasher;
+        EventID::Hash hasher;
         REQUIRE(hasher(uuid1) != hasher(uuid2));
     }
     
-    SECTION("UUID 字符串转换") {
-        UUID uuid(0x123456789ABCDEF0, 0xFEDCBA9876543210);
+    SECTION("EventID 字符串转换") {
+        EventID uuid(0x123456789ABCDEF0, 0xFEDCBA9876543210);
         std::string str = uuid.toString();
         
         REQUIRE(str.length() == 32);
