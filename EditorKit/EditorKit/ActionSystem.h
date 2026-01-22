@@ -140,7 +140,7 @@ public:
         const std::string& description, int priority = 0)
         : IActionHandler<KeyType>(handle, description, priority), validator_(std::move(validator))
     {
-        //type_check::assert_value_types<Args...>();
+        
     }
 
     bool Validate(Args&&... args) const
@@ -1152,7 +1152,6 @@ public:
         const std::string& description = "",
         int priority = 0)
     {
-        type_check::assert_value_types<Args...>();
         ActionHandle<KeyType> handle(nextHandleId_++, actionKey, ActionHandlerType::Validator);
 
         auto* processor = GetOrCreateProcessor<Args...>(actionKey);
@@ -1169,7 +1168,6 @@ public:
         const std::string& description = "",
         int priority = 0)
     {
-        type_check::assert_value_types<Args...>();
         ActionHandle<KeyType> handle(nextHandleId_++, actionKey, ActionHandlerType::SequentialProcessor);
 
         auto* processorWrapper = GetOrCreateProcessor<Args...>(actionKey);
@@ -1186,7 +1184,6 @@ public:
         const std::string& description = "",
         int priority = 0)
     {
-        type_check::assert_value_types<Args...>();
         ActionHandle<KeyType> handle(nextHandleId_++, actionKey, ActionHandlerType::FinalProcessor);
 
         auto* processorWrapper = GetOrCreateProcessor<Args...>(actionKey);
@@ -1204,7 +1201,6 @@ public:
         const std::string& description = "",
         int priority = 0)
     {
-        type_check::assert_value_types<Args...>();
         ActionHandle<KeyType> handle(nextHandleId_++, actionKey, type);
 
         auto* processorWrapper = GetOrCreateProcessor<Args...>(actionKey);
@@ -1308,7 +1304,7 @@ public:
 
     // 添加参数指针准备辅助函数
     template<typename Tuple, size_t... Is>
-    void PrepareArgPointers(void* pointers[], Tuple& tuple, std::index_sequence<Is...>)
+    void PrepareArgPointers(void* pointers[], Tuple&& tuple, std::index_sequence<Is...>)
     {
         ((pointers[Is] = static_cast<void*>(&std::get<Is>(tuple))), ...);
     }

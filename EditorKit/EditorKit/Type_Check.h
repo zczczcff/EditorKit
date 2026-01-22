@@ -56,14 +56,6 @@ namespace type_check
     template<typename Tuple>
     struct tuple_value_type_checker;
 
-    template<typename... Ts>
-    struct tuple_value_type_checker<std::tuple<Ts...>>
-    {
-        static void check()
-        {
-            assert_value_types<Ts...>();
-        }
-    };
 }
 
 // 函数特征提取

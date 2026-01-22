@@ -746,7 +746,7 @@ private:
 
     // 准备参数指针数组（从KEventBus_Ref借鉴）
     template<typename Tuple, size_t... Is>
-    void PrepareArgPointers(void* pointers[], Tuple& tuple, std::index_sequence<Is...>)
+    void PrepareArgPointers(void* pointers[], Tuple&& tuple, std::index_sequence<Is...>)
     {
         ((pointers[Is] = static_cast<void*>(&std::get<Is>(tuple))), ...);
     }
