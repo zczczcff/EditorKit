@@ -58,6 +58,74 @@ public:
         //return std::hash<int>()(id_);
     }
 
+    // 字符串连接运算符 +
+    StaticString operator+(const StaticString& other) const
+    {
+        return StaticString(str() + other.str());
+    }
+
+    StaticString operator+(const char* other) const
+    {
+        return StaticString(str() + other);
+    }
+
+    StaticString operator+(const std::string& other) const
+    {
+        return StaticString(str() + other);
+    }
+
+    // 友元函数，支持 char* + StaticString 的形式
+    friend StaticString operator+(const char* lhs, const StaticString& rhs)
+    {
+        return StaticString(lhs) + rhs;
+    }
+
+    friend StaticString operator+(const std::string& lhs, const StaticString& rhs)
+    {
+        return StaticString(lhs) + rhs;
+    }
+
+    // += 运算符
+    StaticString& operator+=(const StaticString& other)
+    {
+        *this = *this + other;
+        return *this;
+    }
+
+    StaticString& operator+=(const char* other)
+    {
+        *this = *this + other;
+        return *this;
+    }
+
+    StaticString& operator+=(const std::string& other)
+    {
+        *this = *this + other;
+        return *this;
+    }
+
+    // append 方法
+    StaticString& append(const StaticString& other)
+    {
+        return operator+=(other);
+    }
+
+    StaticString& append(const char* other)
+    {
+        return operator+=(other);
+    }
+
+    StaticString& append(const std::string& other)
+    {
+        return operator+=(other);
+    }
+
+    StaticString& append(const StaticString& other, size_t pos, size_t len = std::string::npos)
+    {
+        std::string otherStr = other.str().substr(pos, len);
+        return operator+=(otherStr);
+    }
+
 private:
     int id_;
 
