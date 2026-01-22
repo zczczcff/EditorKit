@@ -149,10 +149,25 @@ struct PublishResult
     }
 };
 
-// 类型信息获取
+// 类型信息获取（支持引用）
 template<typename T>
 std::string GetTypeNameImpl()
 {
+    //if constexpr (std::is_reference_v<T>)
+    //{
+    //    if constexpr (std::is_lvalue_reference_v<T>)
+    //    {
+    //        return std::string(typeid(std::remove_reference_t<T>).name()) + "&";
+    //    }
+    //    else
+    //    {
+    //        return std::string(typeid(std::remove_reference_t<T>).name()) + "&&";
+    //    }
+    //}
+    //else
+    //{
+    //    return std::string(typeid(T).name());
+    //}
     return std::string(typeid(T).name());
 }
 
@@ -189,10 +204,11 @@ protected:
     EventID token_;
     std::string description_;
     SubscriptionMode mode_;
-
+    std::string argTypes_;  // 存储参数类型信息
 public:
-    IEventFunction(const EventID& token, const std::string& description, SubscriptionMode mode)
-        : token_(token), description_(description), mode_(mode)
+    IEventFunction(const EventID& token, const std::string& description,
+        SubscriptionMode mode, const std::string& argTypes)
+        : token_(token), description_(description), mode_(mode), argTypes_(argTypes)
     {
     }
     virtual ~IEventFunction() = default;
@@ -200,32 +216,30 @@ public:
     const EventID& GetToken() const { return token_; }
     const std::string& GetDescription() const { return description_; }
     SubscriptionMode GetMode() const { return mode_; }
-    virtual std::string GetArgTypes() const = 0;
+    virtual std::string GetArgTypes() { return argTypes_; };
     virtual size_t GetArgCount() const = 0;
+    virtual bool ExecuteWithForward(void* args[]) = 0;
 };
 
-// 事件函数实现（添加编译期检查）
+// 事件函数实现（支持完美转发）
 template <typename... Args>
 class EventFunctionImpl : public IEventFunction
 {
 public:
     using HandlerType = std::function<void(Args...)>;
 
-    EventFunctionImpl(HandlerType delegate, const EventID& token, const std::string& description, SubscriptionMode mode)
-        : IEventFunction(token, description, mode), delegate_(std::move(delegate))
+    EventFunctionImpl(HandlerType delegate, const EventID& token,
+        const std::string& description, SubscriptionMode mode)
+        : IEventFunction(token, description, mode, GetTemplateArgsInfo<Args...>()),
+        delegate_(std::move(delegate))
     {
-        // 编译期检查参数类型
-        type_check::assert_value_types<Args...>();
+        // 移除值类型限制，支持引用类型
     }
 
-    void Execute(Args... args) const
+    // 完美转发执行
+    void Execute(Args&&... args) const
     {
-        delegate_(args...);
-    }
-
-    std::string GetArgTypes() const override
-    {
-        return GetTemplateArgsInfo<Args...>();
+        delegate_(std::forward<Args>(args)...);
     }
 
     size_t GetArgCount() const override
@@ -233,9 +247,64 @@ public:
         return sizeof...(Args);
     }
 
+    // 实现字节码接口的完美转发
+    bool ExecuteWithForward(void* args[]) override
+    {
+        if constexpr (sizeof...(Args) == 0)
+        {
+            Execute();
+            return true;
+        }
+        else
+        {
+            return ExecuteWithArgs(args, std::index_sequence_for<Args...>{});
+        }
+    }
+
 private:
+    template<size_t... Is>
+    bool ExecuteWithArgs(void* args[], std::index_sequence<Is...>)
+    {
+        // 类型匹配检查
+        if (!CheckArgTypes<Args...>(args))
+        {
+            return false;
+        }
+
+        // 使用完美转发
+        Execute(
+            std::forward<Args>(
+                *static_cast<std::remove_reference_t<Args>*>(args[Is])
+                )...
+        );
+        return true;
+    }
+
+    // 类型安全检查
+    template<typename T, typename... Rest>
+    bool CheckArgTypes(void* args[])
+    {
+        if constexpr (sizeof...(Rest) == 0)
+        {
+            return CheckSingleArgType<T>(args[0]);
+        }
+        else
+        {
+            return CheckSingleArgType<T>(args[0]) &&
+                CheckArgTypes<Rest...>(args + 1);
+        }
+    }
+
+    template<typename T>
+    bool CheckSingleArgType(void* arg)
+    {
+        using RawType = std::remove_reference_t<T>;
+        return arg != nullptr;
+    }
+
     HandlerType delegate_;
 };
+
 
 // 事件总线 - 支持自定义键类型和哈希函数
 template<typename EventKeyType = std::string, typename Hash = std::hash<EventKeyType>>
@@ -274,7 +343,7 @@ public:
         bool once = false)
     {
         // 编译期检查参数类型
-        type_check::assert_value_types<Args...>();
+        //type_check::assert_value_types<Args...>();
         return SubscribeDetailed<Args...>(eventName, std::move(handler), description, once, SubscriptionMode::Multicast);
     }
 
@@ -287,32 +356,32 @@ public:
         bool once = false)
     {
         // 编译期检查参数类型
-        type_check::assert_value_types<Args...>();
+        //type_check::assert_value_types<Args...>();
         return SubscribeDetailed<Args...>(eventName, std::move(handler), description, once, mode);
     }
 
     // 取消订阅
     bool Unsubscribe(const EventID& token);
 
-    // 发布事件（默认多播模式）
+    // 发布事件（默认多播模式）- 使用完美转发
     template <typename... Args>
-    PublishResult Publish(const EventKeyType& eventName, Args... args)
+    PublishResult Publish(const EventKeyType& eventName, Args&&... args)
     {
-        return PublishImpl<Args...>(eventName, SubscriptionMode::Multicast, args...);
+        return PublishImpl<Args...>(eventName, SubscriptionMode::Multicast, std::forward<Args>(args)...);
     }
 
-    // 发布单播事件
+    // 发布单播事件 - 使用完美转发
     template <typename... Args>
-    PublishResult PublishUnicast(const EventKeyType& eventName, Args... args)
+    PublishResult PublishUnicast(const EventKeyType& eventName, Args&&... args)
     {
-        return PublishImpl<Args...>(eventName, SubscriptionMode::Unicast, args...);
+        return PublishImpl<Args...>(eventName, SubscriptionMode::Unicast, std::forward<Args>(args)...);
     }
 
-    // 发布事件到指定模式
+    // 发布事件到指定模式 - 使用完美转发
     template <typename... Args>
-    PublishResult Publish(const EventKeyType& eventName, SubscriptionMode mode, Args... args)
+    PublishResult Publish(const EventKeyType& eventName, SubscriptionMode mode, Args&&... args)
     {
-        return PublishImpl<Args...>(eventName, mode, args...);
+        return PublishImpl<Args...>(eventName, mode, std::forward<Args>(args)...);
     }
 
     // 是否有订阅者（检查多播）
@@ -347,8 +416,9 @@ private:
         const std::string& description, bool once, SubscriptionMode mode)
     {
         using traits = function_traits<std::decay_t<Callable>>;
+        using arg_types = typename traits::argument_types;
 
-        // 使用折叠表达式检查所有参数类型
+        // 使用编译时if constexpr处理不同参数数量
         if constexpr (traits::arity == 0)
         {
             return SubscribeDetailed<>(eventName,
@@ -358,7 +428,7 @@ private:
         {
             // 编译期检查Callable的参数类型
             using arg_types = typename traits::argument_types;
-            type_check::tuple_value_type_checker<arg_types>::check();
+            //type_check::tuple_value_type_checker<arg_types>::check();
 
             if constexpr (traits::arity == 1)
             {
@@ -586,13 +656,20 @@ private:
         return token;
     }
 
-    // 发布事件实现
+    // 发布事件实现（使用完美转发）
     template <typename... Args>
-    PublishResult PublishImpl(const EventKeyType& eventName, SubscriptionMode mode, Args... args)
+    PublishResult PublishImpl(const EventKeyType& eventName, SubscriptionMode mode, Args&&... args)
     {
         PublishResult result;
-        result.publishedArgTypes = GetTemplateArgsInfo<Args...>();
+        result.publishedArgTypes = GetTemplateArgsInfo<std::decay_t<Args>...>();
         result.publishMode = mode;
+
+        // 创建参数的副本或引用，确保生命周期
+        auto argStorage = std::make_tuple(std::forward<Args>(args)...);
+
+        // 准备参数指针数组，指向tuple中的元素
+        void* argPointers[sizeof...(Args)+1] = {};
+        PrepareArgPointers(argPointers, argStorage, std::index_sequence_for<Args...>{});
 
         if (mode == SubscriptionMode::Unicast)
         {
@@ -605,12 +682,20 @@ private:
                 return result;
             }
 
-            // 尝试动态转换到正确的类型
-            auto typedHandler = dynamic_cast<EventFunctionImpl<Args...>*>(it->second.get());
-            if (typedHandler)
+            //auto typedHandler = dynamic_cast<EventFunctionImpl<Args...>*>(it->second.get());
+            //if (!typedHandler)
+            // 检查参数数量和类型名称是否匹配
+            if (it->second->GetArgCount() != sizeof...(Args) ||
+                it->second->GetArgTypes() != GetTemplateArgsInfo<std::decay_t<Args>...>())
             {
-                // 执行订阅者处理函数
-                typedHandler->Execute(args...);
+                result.AddFailure(it->second->GetArgTypes());
+                result.errorMessage = "单播事件参数类型不匹配";
+                return result;
+            }
+
+            // 使用完美转发执行
+            if (it->second->ExecuteWithForward(argPointers))
+            {
                 result.AddSuccess();
 
                 // 检查是否是一次性事件
@@ -618,14 +703,12 @@ private:
                 if (onceIt != unicastOnceEventHandlers_.end())
                 {
                     Unsubscribe(onceIt->second);
-                    //unicastOnceEventHandlers_.erase(onceIt);
                 }
             }
             else
             {
-                // 类型不匹配，记录失败信息
                 result.AddFailure(it->second->GetArgTypes());
-                result.errorMessage = "单播事件参数类型不匹配";
+                result.errorMessage = "单播事件执行失败";
             }
         }
         else
@@ -646,12 +729,19 @@ private:
             // 遍历所有订阅者
             for (const auto& handler : handlersIt->second)
             {
-                // 尝试动态转换到正确的类型
-                auto typedHandler = dynamic_cast<EventFunctionImpl<Args...>*>(handler.get());
-                if (typedHandler)
+                // 检查参数数量和类型名称是否匹配
+                //auto typedHandler = dynamic_cast<EventFunctionImpl<Args...>*>(handler.get());//使用dynamic_cast进行参数验证性能只有使用typeid进行参数验证的1/30（release）
+                //if (!typedHandler)
+				if (handler->GetArgCount() != sizeof...(Args) ||
+                    handler->GetArgTypes() != GetTemplateArgsInfo<std::decay_t<Args>...>())
                 {
-                    // 执行订阅者处理函数
-                    typedHandler->Execute(args...);
+                    result.AddFailure(handler->GetArgTypes());
+                    continue;
+                }
+
+                // 使用完美转发执行
+                if (handler->ExecuteWithForward(argPointers))
+                {
                     result.AddSuccess();
                     hasAnySuccessfulExecution = true;
 
@@ -669,7 +759,6 @@ private:
                 }
                 else
                 {
-                    // 类型不匹配，记录失败信息
                     result.AddFailure(handler->GetArgTypes());
                 }
             }
@@ -701,6 +790,14 @@ private:
 
         return result;
     }
+
+    // 准备参数指针数组（从KEventBus_Ref借鉴）
+    template<typename Tuple, size_t... Is>
+    void PrepareArgPointers(void* pointers[], Tuple& tuple, std::index_sequence<Is...>)
+    {
+        ((pointers[Is] = static_cast<void*>(&std::get<Is>(tuple))), ...);
+    }
+
 
     // 存储多播事件处理器 - 使用自定义哈希函数
     std::unordered_map<EventKeyType, std::vector<std::unique_ptr<IEventFunction>>, Hash> multicastEventHandlers_;

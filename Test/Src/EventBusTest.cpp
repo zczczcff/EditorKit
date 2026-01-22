@@ -134,7 +134,7 @@ TEST_CASE("EventBus 参数类型测试", "[EventBus]") {
         double receivedDouble = 0.0;
         TestData receivedData;
         
-        bus.Subscribe("string_event", [&](std::string str) {
+        bus.Subscribe("string_event", [&](std::string& str) {
             receivedString = str;
         });
         
@@ -142,11 +142,11 @@ TEST_CASE("EventBus 参数类型测试", "[EventBus]") {
             receivedDouble = d;
         });
         
-        bus.Subscribe("struct_event", [&](TestData data) {
+        bus.Subscribe("struct_event", [&](const TestData& data) {
             receivedData = data;
         });
-        
-        bus.Publish("string_event", std::string("Hello World"));
+        std::string s = std::string("Hello World");
+        bus.Publish("string_event", s);
         bus.Publish("double_event", 3.14159);
         bus.Publish("struct_event", TestData{1, "test", 2.5});
         
@@ -162,7 +162,7 @@ TEST_CASE("EventBus 参数类型测试", "[EventBus]") {
         std::string receivedStr;
         double receivedDouble = 0.0;
         
-        bus.Subscribe("multi_param_event", [&](int a, std::string b, double c) {
+        bus.Subscribe("multi_param_event", [&](int a, const std::string& b, double c) {
             receivedInt = a;
             receivedStr = b;
             receivedDouble = c;
