@@ -1306,7 +1306,7 @@ public:
     template<typename Tuple, size_t... Is>
     void PrepareArgPointers(void* pointers[], Tuple&& tuple, std::index_sequence<Is...>)
     {
-        ((pointers[Is] = static_cast<void*>(&std::get<Is>(tuple))), ...);
+        ((pointers[Is] = (void*)(&std::get<Is>(tuple))), ...);
     }
 
     // ÒÆ³ı´¦ÀíÆ÷
