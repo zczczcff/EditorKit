@@ -80,27 +80,30 @@ TEST_CASE("处理器类型测试", "[ActionSystem][ProcessorTypes]")
 
     // 添加各种类型的处理器
     system.AddTriggerListener(actionKey,
-        [&triggerCount](std::string msg)
+        [&triggerCount](std::string& msg)
         {
             triggerCount++;
-            std::cout << "触发监听器: " << msg << std::endl;
+            std::cout << "触发监听器: msg.length()=" << msg.length()
+                << ", content: '" << msg << "'" << std::endl;
+            msg = "test";
         }, "触发监听器");
 
     system.AddValidationListener(actionKey,
-        [&validationCount](std::string msg)
+        [&validationCount](std::string& msg)
         {
             validationCount++;
-            std::cout << "验证监听器: " << msg << std::endl;
+            std::cout << "验证监听器: msg.length()=" << msg.length()
+                << ", content: '" << msg << "'" << std::endl;
         }, "验证监听器");
 
     system.AddSequentialProcessor(actionKey,
-        [](std::string msg)
+        [](std::string& msg)
         {
             std::cout << "顺序处理器: " << msg << std::endl;
         }, "顺序处理器");
 
     system.AddCompletionListener(actionKey,
-        [&completionCount](std::string msg)
+        [&completionCount](std::string& msg)
         {
             completionCount++;
             std::cout << "完成监听器: " << msg << std::endl;
@@ -108,7 +111,8 @@ TEST_CASE("处理器类型测试", "[ActionSystem][ProcessorTypes]")
 
     SECTION("所有监听器正确执行")
     {
-        auto result = system.Execute(actionKey, std::string("测试消息"));
+        std::string s = std::string("测试消息");
+        auto result = system.Execute(actionKey, s);
 
         REQUIRE(triggerCount == 1);
         REQUIRE(validationCount == 1);
@@ -264,31 +268,31 @@ TEST_CASE("复杂场景测试", "[ActionSystem][Complex]")
 
     // 复杂的业务逻辑场景
     system.AddTriggerListener(actionKey,
-        [&executionLog](std::string user, int amount)
+        [&executionLog](const std::string& user, int amount)
         {
             executionLog.push_back("触发:用户" + user + "尝试转账" + std::to_string(amount));
         }, "交易触发监听器");
 
     system.AddValidator(actionKey,
-        [](std::string user, int amount) -> bool
+        [](const std::string& user, int amount) -> bool
         {
             return !user.empty() && amount > 0;
         }, "基础验证");
 
     system.AddValidator(actionKey,
-        [](std::string user, int amount) -> bool
+        [](const std::string& user, int amount) -> bool
         {
             return amount <= 10000; // 单笔限额1万
         }, "限额验证");
 
     system.AddSequentialProcessor(actionKey,
-        [](std::string user, int amount)
+        [](const std::string& user, int amount)
         {
             // 模拟扣款
         }, "扣款处理", 1);
 
     system.AddCompletionListener(actionKey,
-        [&executionLog](std::string user, int amount)
+        [&executionLog](const std::string& user, int amount)
         {
             executionLog.push_back("交易完成:用户" + user + "成功转账" + std::to_string(amount));
         }, "完成通知");

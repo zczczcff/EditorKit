@@ -12,6 +12,12 @@
 #include <iomanip>
 #include <algorithm>
 #include "Type_Check.h"
+
+/*
+*   ！！！注意！！！
+*   使用值类型作为订阅参数时，会在被调用时触发移动语义（如果有移动语义），导致只有第一个订阅触发得到资源。复杂对象尽量使用引用。
+*/
+
 // Action类型
 enum class ActionHandlerType
 {
@@ -134,12 +140,12 @@ public:
         const std::string& description, int priority = 0)
         : IActionHandler<KeyType>(handle, description, priority), validator_(std::move(validator))
     {
-        type_check::assert_value_types<Args...>();
+        //type_check::assert_value_types<Args...>();
     }
 
-    bool Validate(Args... args) const
+    bool Validate(Args&&... args) const
     {
-        return validator_(args...);
+        return validator_(std::forward<Args>(args)...);
     }
 
     std::string GetArgTypes() const override
@@ -173,13 +179,14 @@ public:
         : IActionHandler<KeyType>(handle, description, priority),
         processor_(std::move(processor)), type_(type)
     {
-        type_check::assert_value_types<Args...>();
+        
     }
 
-    void Process(Args... args) const
+    void Process(Args&&... args) const
     {
-        processor_(args...);
+        processor_(std::forward<Args>(args)...);
     }
+
 
     std::string GetArgTypes() const override
     {
@@ -281,17 +288,17 @@ public:
     }
 
     // 执行流程
-    ActionResult Execute(Args... args)
+    ActionResult Execute(Args&&... args)
     {
         ActionResult result;
 
-        // 阶段1: 触发监听器
+        // 阶段1: 触发监听器（使用完美转发）
         result.totalListeners += triggerListeners_.size();
         for (const auto& listener : triggerListeners_)
         {
             try
             {
-                listener->Process(args...);
+                listener->Process(std::forward<Args>(args)...);
                 result.executedListeners++;
             }
             catch (const std::exception& e)
@@ -300,13 +307,13 @@ public:
             }
         }
 
-        // 阶段2: 验证器
+        // 阶段2: 验证器（使用完美转发）
         result.totalValidators = validators_.size();
         for (const auto& validator : validators_)
         {
             try
             {
-                if (validator->Validate(args...))
+                if (validator->Validate(std::forward<Args>(args)...))
                 {
                     result.passedValidators++;
                 }
@@ -326,7 +333,7 @@ public:
         }
         result.validationPassed = (result.totalValidators == 0) || (result.passedValidators == result.totalValidators);
 
-        // 验证失败则提前返回
+        // 验证失败提前返回
         if (!result.validationPassed && result.totalValidators > 0)
         {
             return result;
@@ -338,7 +345,7 @@ public:
         {
             try
             {
-                listener->Process(args...);
+                listener->Process(std::forward<Args>(args)...);
                 result.executedListeners++;
             }
             catch (const std::exception& e)
@@ -353,7 +360,7 @@ public:
         {
             try
             {
-                processor->Process(args...);
+                processor->Process(std::forward<Args>(args)...);
                 result.executedProcessors++;
             }
             catch (const std::exception& e)
@@ -369,7 +376,7 @@ public:
         {
             try
             {
-                finalProcessor_->Process(args...);
+                finalProcessor_->Process(std::forward<Args>(args)...);
                 result.executedProcessors++;
                 result.totalProcessors++;
             }
@@ -387,7 +394,7 @@ public:
         {
             try
             {
-                listener->Process(args...);
+                listener->Process(std::forward<Args>(args)...);
                 result.executedListeners++;
             }
             catch (const std::exception& e)
@@ -446,6 +453,8 @@ private:
         virtual size_t GetArgCount() const = 0;
         virtual size_t GetTotalHandlers() const = 0;
         virtual std::string GetStatistics() const = 0;
+        // 新增：字节码执行接口（支持完美转发）
+        virtual ActionResult ExecuteWithForward(void* args[]) = 0;
     };
 
     template<typename... Args>
@@ -453,11 +462,70 @@ private:
     {
     private:
         ActionProcessorContainer<KeyType, Args...> container_;
+        template<typename T, typename... Rest>
+        bool CheckArgTypes(void* args[]) const
+        {
+            if constexpr (sizeof...(Rest) == 0)
+            {
+                return CheckSingleArgType<T>(args[0]);
+            }
+            else
+            {
+                return CheckSingleArgType<T>(args[0]) &&
+                    CheckArgTypes<Rest...>(args + 1);
+            }
+        }
 
+        template<typename T>
+        bool CheckSingleArgType(void* arg) const
+        {
+            using RawType = std::remove_reference_t<T>;
+            return arg != nullptr;
+        }
+
+        // 准备参数指针数组（借鉴EventBus）
+        template<typename Tuple, size_t... Is>
+        void PrepareArgPointers(void* pointers[], Tuple& tuple, std::index_sequence<Is...>) const
+        {
+            ((pointers[Is] = static_cast<void*>(&std::get<Is>(tuple))), ...);
+        }
+
+        // 带参数执行的实现
+        template<size_t... Is>
+        ActionResult ExecuteWithArgs(void* args[], std::index_sequence<Is...>)
+        {
+            // 类型安全检查
+            if (!CheckArgTypes<Args...>(args))
+            {
+                ActionResult result;
+                result.errorMessage = "Parameter type mismatch in execution";
+                return result;
+            }
+
+            // 使用完美转发执行
+            return container_.Execute(
+                std::forward<Args>(
+                    *static_cast<std::remove_reference_t<Args>*>(args[Is])
+                    )...
+            );
+        }
     public:
         ActionResult Execute(Args... args)
         {
-            return container_.Execute(args...);
+            return container_.Execute(std::forward<Args>(args)...);
+        }
+
+        // 实现字节码执行接口
+        ActionResult ExecuteWithForward(void* args[]) override
+        {
+            if constexpr (sizeof...(Args) == 0)
+            {
+                return container_.Execute();
+            }
+            else
+            {
+                return ExecuteWithArgs(args, std::index_sequence_for<Args...>{});
+            }
         }
 
         void AddValidator(const ActionHandle<KeyType>& handle,
@@ -1184,7 +1252,7 @@ public:
 
     // 执行动作
     template<typename... Args>
-    ActionResult Execute(const KeyType& actionKey, Args... args)
+    ActionResult Execute(const KeyType& actionKey, Args&&... args)
     {
         auto it = actions_.find(actionKey);
         if (it == actions_.end())
@@ -1192,30 +1260,59 @@ public:
             ActionResult result;
             result.errorMessage = "Action not found";
 
-            // 即使动作不存在，也通知全局监听器
+            // 即使找不到action，也通知全局监听器
             NotifyGlobalListeners(actionKey, result);
             return result;
         }
 
-        auto* processor = dynamic_cast<ActionProcessorWrapper<Args...>*>(it->second.get());
-        if (!processor)
+        // 使用类型名称验证替代dynamic_cast
+        std::string expectedArgTypes = type_check::get_template_args_info<std::decay_t<Args>...>();
+        if (it->second->GetArgTypes() != expectedArgTypes)
         {
             ActionResult result;
-            result.errorMessage = "Action parameter type mismatch";
+            result.errorMessage = "Action parameter type mismatch. Expected: " +
+                it->second->GetArgTypes() + ", but got: " + expectedArgTypes;
 
-            // 参数类型不匹配时也通知全局监听器
+            // 类型不匹配时也通知全局监听器
             NotifyGlobalListeners(actionKey, result);
             return result;
         }
 
-        // 执行动作
-        ActionResult result = processor->Execute(args...);
+        // 检查参数数量
+        if (it->second->GetArgCount() != sizeof...(Args))
+        {
+            ActionResult result;
+            result.errorMessage = "Action parameter count mismatch. Expected: " +
+                std::to_string(it->second->GetArgCount()) +
+                ", but got: " + std::to_string(sizeof...(Args));
 
-        // 新增：通知全局监听器
+            NotifyGlobalListeners(actionKey, result);
+            return result;
+        }
+
+        // 准备参数存储和指针数组（支持完美转发）
+        //auto argStorage = std::make_tuple(std::forward<Args>(args)...);//不再创建副本
+        void* argPointers[sizeof...(Args) + 1] = {};
+
+        // 准备参数指针
+        PrepareArgPointers(argPointers, std::tie(args...), std::index_sequence_for<Args...>{});
+
+        // 执行action
+        ActionResult result = it->second->ExecuteWithForward(argPointers);
+
+        // 通知全局监听器
         NotifyGlobalListeners(actionKey, result);
 
         return result;
     }
+
+    // 添加参数指针准备辅助函数
+    template<typename Tuple, size_t... Is>
+    void PrepareArgPointers(void* pointers[], Tuple& tuple, std::index_sequence<Is...>)
+    {
+        ((pointers[Is] = static_cast<void*>(&std::get<Is>(tuple))), ...);
+    }
+
     // 移除处理器
     bool RemoveHandler(const ActionHandle<KeyType>& handle)
     {

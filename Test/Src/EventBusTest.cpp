@@ -136,6 +136,7 @@ TEST_CASE("EventBus 参数类型测试", "[EventBus]") {
         
         bus.Subscribe("string_event", [&](std::string& str) {
             receivedString = str;
+            str = "test";
         });
         
         bus.Subscribe("double_event", [&](double d) {

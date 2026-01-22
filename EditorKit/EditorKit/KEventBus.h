@@ -19,12 +19,13 @@
 
 //！！！重要说明！！！
 /*
-*   1.Subscribe回调只支持值类型参数;publish不限定参数引用类型/值类型
-*   2.Subscribe回调和Publish函数参数数量、类型必须精确匹配，隐式类型转换在此处无效
+*   
+*   1.Subscribe回调和Publish函数参数数量、类型必须精确匹配，隐式类型转换在此处无效
 *       如参数为（short i）的回调，使用publish(10)无法匹配；参数为（std::string s）的回调，使用publish("Test")无法匹配
 *       正确方式为：（short i）->publish(short(10));（std::string s）->publish(std::string("Test"))或（const char* s）->publish("Test")
-*   3.新增单播事件功能：每个事件名称只能有一个订阅者，后订阅的会覆盖先订阅的
-*   4.支持自定义键类型和哈希函数
+*   
+*   2.支持自定义键类型和哈希函数
+*   
 */
 
 // 订阅模式枚举
@@ -149,54 +150,6 @@ struct PublishResult
     }
 };
 
-// 类型信息获取（支持引用）
-template<typename T>
-std::string GetTypeNameImpl()
-{
-    //if constexpr (std::is_reference_v<T>)
-    //{
-    //    if constexpr (std::is_lvalue_reference_v<T>)
-    //    {
-    //        return std::string(typeid(std::remove_reference_t<T>).name()) + "&";
-    //    }
-    //    else
-    //    {
-    //        return std::string(typeid(std::remove_reference_t<T>).name()) + "&&";
-    //    }
-    //}
-    //else
-    //{
-    //    return std::string(typeid(T).name());
-    //}
-    return std::string(typeid(T).name());
-}
-
-template<typename T, typename... Args>
-std::string BuildTypeNamesString()
-{
-    if constexpr (sizeof...(Args) == 0)
-    {
-        return GetTypeNameImpl<T>();
-    }
-    else
-    {
-        return GetTypeNameImpl<T>() + ", " + BuildTypeNamesString<Args...>();
-    }
-}
-
-template<typename... Args>
-std::string GetTemplateArgsInfo()
-{
-    if constexpr (sizeof...(Args) == 0)
-    {
-        return "void";
-    }
-    else
-    {
-        return BuildTypeNamesString<Args...>();
-    }
-}
-
 // 事件函数接口
 class IEventFunction
 {
@@ -230,7 +183,7 @@ public:
 
     EventFunctionImpl(HandlerType delegate, const EventID& token,
         const std::string& description, SubscriptionMode mode)
-        : IEventFunction(token, description, mode, GetTemplateArgsInfo<Args...>()),
+        : IEventFunction(token, description, mode, type_check::get_template_args_info<Args...>()),
         delegate_(std::move(delegate))
     {
         // 移除值类型限制，支持引用类型
@@ -661,15 +614,15 @@ private:
     PublishResult PublishImpl(const EventKeyType& eventName, SubscriptionMode mode, Args&&... args)
     {
         PublishResult result;
-        result.publishedArgTypes = GetTemplateArgsInfo<std::decay_t<Args>...>();
+        result.publishedArgTypes = type_check::get_template_args_info<std::decay_t<Args>...>();
         result.publishMode = mode;
 
         // 创建参数的副本或引用，确保生命周期
-        auto argStorage = std::make_tuple(std::forward<Args>(args)...);
+        //auto argStorage = std::make_tuple(std::forward<Args>(args)...);//不再创建副本
 
         // 准备参数指针数组，指向tuple中的元素
         void* argPointers[sizeof...(Args)+1] = {};
-        PrepareArgPointers(argPointers, argStorage, std::index_sequence_for<Args...>{});
+        PrepareArgPointers(argPointers, std::tie(args...), std::index_sequence_for<Args...>{});
 
         if (mode == SubscriptionMode::Unicast)
         {
@@ -686,7 +639,7 @@ private:
             //if (!typedHandler)
             // 检查参数数量和类型名称是否匹配
             if (it->second->GetArgCount() != sizeof...(Args) ||
-                it->second->GetArgTypes() != GetTemplateArgsInfo<std::decay_t<Args>...>())
+                it->second->GetArgTypes() != type_check::get_template_args_info<std::decay_t<Args>...>())
             {
                 result.AddFailure(it->second->GetArgTypes());
                 result.errorMessage = "单播事件参数类型不匹配";
@@ -733,7 +686,7 @@ private:
                 //auto typedHandler = dynamic_cast<EventFunctionImpl<Args...>*>(handler.get());//使用dynamic_cast进行参数验证性能只有使用typeid进行参数验证的1/30（release）
                 //if (!typedHandler)
 				if (handler->GetArgCount() != sizeof...(Args) ||
-                    handler->GetArgTypes() != GetTemplateArgsInfo<std::decay_t<Args>...>())
+                    handler->GetArgTypes() != type_check::get_template_args_info<std::decay_t<Args>...>())
                 {
                     result.AddFailure(handler->GetArgTypes());
                     continue;

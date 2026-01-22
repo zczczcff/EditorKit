@@ -18,32 +18,11 @@ namespace type_check
         static constexpr bool value = (is_value_type<Args>::value && ...);
     };
 
-    template<typename... Args>
-    constexpr void assert_value_types()
-    {
-        static_assert(all_value_types<Args...>::value,
-            "All parameters must be value types (non-reference).");
-    }
-
     // 获取类型名称
     template<typename T>
     std::string get_type_name()
     {
-        if constexpr (std::is_reference_v<T>)
-        {
-            if constexpr (std::is_lvalue_reference_v<T>)
-            {
-                return std::string(typeid(std::remove_reference_t<T>).name()) + "&";
-            }
-            else
-            {
-                return std::string(typeid(std::remove_reference_t<T>).name()) + "&&";
-            }
-        }
-        else
-        {
-            return std::string(typeid(T).name());
-        }
+        return std::string(typeid(T).name());
     }
 
     // 构建类型名称字符串
