@@ -310,3 +310,572 @@ TEST_CASE("复杂场景测试", "[ActionSystem][Complex]")
         REQUIRE(result.validationPassed == false);
     }
 }
+
+// 测试允许重载模式的基本功能
+TEST_CASE("允许重载模式 - 基本功能测试", "[ActionSystem][Overload][Basic]")
+{
+    StringActionSystemOverload system;  // 使用允许重载的版本
+    std::string actionKey = "overloaded_action";
+
+    int intProcessorCount = 0;
+    int stringProcessorCount = 0;
+    int floatProcessorCount = 0;
+
+    // 为同一个actionKey添加不同参数类型的处理器（重载）
+    auto handle1 = system.AddSequentialProcessor(actionKey,
+        [&intProcessorCount](int value)
+        {
+            intProcessorCount++;
+            std::cout << "整数处理器: " << value << std::endl;
+        }, "整数处理器");
+
+    auto handle2 = system.AddSequentialProcessor(actionKey,
+        [&stringProcessorCount](const std::string& value)
+        {
+            stringProcessorCount++;
+            std::cout << "字符串处理器: " << value << std::endl;
+        }, "字符串处理器");
+
+    auto handle3 = system.AddSequentialProcessor(actionKey,
+        [&floatProcessorCount](float value)
+        {
+            floatProcessorCount++;
+            std::cout << "浮点数处理器: " << value << std::endl;
+        }, "浮点数处理器");
+
+    SECTION("整数参数应调用整数处理器")
+    {
+        auto result = system.Execute(actionKey, 42);
+        REQUIRE(result.success == true);
+        REQUIRE(intProcessorCount == 1);
+        REQUIRE(stringProcessorCount == 0);
+        REQUIRE(floatProcessorCount == 0);
+    }
+
+    SECTION("字符串参数应调用字符串处理器")
+    {
+        auto result = system.Execute(actionKey, std::string("hello"));
+        REQUIRE(result.success == true);
+        REQUIRE(intProcessorCount == 0);
+        REQUIRE(stringProcessorCount == 1);
+        REQUIRE(floatProcessorCount == 0);
+    }
+
+    SECTION("浮点数参数应调用浮点数处理器")
+    {
+        auto result = system.Execute(actionKey, 3.14f);
+        REQUIRE(result.success == true);
+        REQUIRE(intProcessorCount == 0);
+        REQUIRE(stringProcessorCount == 0);
+        REQUIRE(floatProcessorCount == 1);
+    }
+
+    SECTION("不匹配的参数类型应返回错误")
+    {
+        // 尝试执行一个没有注册的参数类型
+        auto result = system.Execute(actionKey, std::vector<int>{1, 2, 3});
+        REQUIRE(result.success == false);
+        REQUIRE_FALSE(result.errorMessage.empty());
+    }
+}
+
+// 测试不允许重载模式的类型冲突
+TEST_CASE("不允许重载模式 - 类型冲突测试", "[ActionSystem][NonOverload][TypeConflict]")
+{
+    StringActionSystem system;  // 默认不允许重载
+
+    SECTION("为同一个actionKey添加不同类型处理器应失败")
+    {
+        std::string actionKey = "conflict_action";
+
+        // 先添加一个整数处理器
+        system.AddSequentialProcessor(actionKey,
+            [](int value)
+            {
+                std::cout << "整数处理器" << std::endl;
+            }, "第一个处理器");
+
+        // 尝试添加字符串处理器 - 应该抛出异常
+        REQUIRE_THROWS_AS(
+            system.AddSequentialProcessor(actionKey,
+                [](const std::string& value)
+                {
+                    std::cout << "字符串处理器" << std::endl;
+                }, "第二个处理器"),
+            std::runtime_error
+                    );
+    }
+
+    SECTION("已有处理器的情况下，正确类型的处理器应成功添加")
+    {
+        std::string actionKey = "same_type_action";
+
+        // 添加第一个整数处理器
+        system.AddSequentialProcessor(actionKey,
+            [](int value)
+            {
+                std::cout << "处理器1" << std::endl;
+            }, "处理器1");
+
+        // 添加第二个整数处理器（相同类型，应该成功）
+        REQUIRE_NOTHROW(
+            system.AddSequentialProcessor(actionKey,
+                [](int value)
+                {
+                    std::cout << "处理器2" << std::endl;
+                }, "处理器2")
+        );
+    }
+}
+
+// 测试重载模式下的各种处理器类型
+TEST_CASE("允许重载模式 - 多种处理器类型测试", "[ActionSystem][Overload][ProcessorTypes]")
+{
+    StringActionSystemOverload system;
+    std::string actionKey = "multi_type_action";
+
+    int intValidatorCount = 0;
+    int stringValidatorCount = 0;
+    int completionListenerCount = 0;
+
+    // 为整数类型添加验证器
+    system.AddValidator(actionKey,
+        [&intValidatorCount](int value) -> bool
+        {
+            intValidatorCount++;
+            return value > 0;
+        }, "整数验证器");
+
+    // 为字符串类型添加验证器
+    system.AddValidator(actionKey,
+        [&stringValidatorCount](const std::string& value) -> bool
+        {
+            stringValidatorCount++;
+            return !value.empty();
+        }, "字符串验证器");
+
+    // 为整数类型添加顺序处理器
+    system.AddSequentialProcessor(actionKey,
+        [](int value)
+        {
+            std::cout << "处理整数: " << value << std::endl;
+        }, "整数处理器");
+
+    // 为字符串类型添加顺序处理器
+    system.AddSequentialProcessor(actionKey,
+        [](const std::string& value)
+        {
+            std::cout << "处理字符串: " << value << std::endl;
+        }, "字符串处理器");
+
+    // 为整数类型添加完成监听器
+    system.AddCompletionListener(actionKey,
+        [&completionListenerCount](int value)
+        {
+            completionListenerCount++;
+            std::cout << "整数完成监听: " << value << std::endl;
+        }, "整数完成监听器");
+
+    SECTION("执行整数流程")
+    {
+        auto result = system.Execute(actionKey, 42);
+        REQUIRE(result.success == true);
+        REQUIRE(intValidatorCount == 1);
+        REQUIRE(stringValidatorCount == 0);
+        REQUIRE(completionListenerCount == 1);
+    }
+
+    SECTION("执行字符串流程")
+    {
+        auto result = system.Execute(actionKey, std::string("test"));
+        REQUIRE(result.success == true);
+        REQUIRE(intValidatorCount == 0);
+        REQUIRE(stringValidatorCount == 1);
+        REQUIRE(completionListenerCount == 0);  // 字符串没有完成监听器
+    }
+}
+
+// 测试重载模式下的优先级系统
+TEST_CASE("允许重载模式 - 优先级测试", "[ActionSystem][Overload][Priority]")
+{
+    StringActionSystemOverload system;
+    std::string actionKey = "priority_overload";
+
+    std::vector<std::string> intExecutionOrder;
+    std::vector<std::string> stringExecutionOrder;
+
+    // 为整数类型添加不同优先级的处理器
+    system.AddSequentialProcessor(actionKey,
+        [&intExecutionOrder](int value)
+        {
+            intExecutionOrder.push_back("int-low");
+        }, "整数低优先级", 10);
+
+    system.AddSequentialProcessor(actionKey,
+        [&intExecutionOrder](int value)
+        {
+            intExecutionOrder.push_back("int-high");
+        }, "整数高优先级", 1);
+
+    // 为字符串类型添加不同优先级的处理器
+    system.AddSequentialProcessor(actionKey,
+        [&stringExecutionOrder](const std::string& value)
+        {
+            stringExecutionOrder.push_back("str-low");
+        }, "字符串低优先级", 10);
+
+    system.AddSequentialProcessor(actionKey,
+        [&stringExecutionOrder](const std::string& value)
+        {
+            stringExecutionOrder.push_back("str-high");
+        }, "字符串高优先级", 1);
+
+    SECTION("整数处理器按优先级排序")
+    {
+        system.Execute(actionKey, 42);
+        REQUIRE(intExecutionOrder.size() == 2);
+        REQUIRE(intExecutionOrder[0] == "int-high");  // 优先级1
+        REQUIRE(intExecutionOrder[1] == "int-low");   // 优先级10
+    }
+
+    SECTION("字符串处理器按优先级排序")
+    {
+        system.Execute(actionKey, std::string("test"));
+        REQUIRE(stringExecutionOrder.size() == 2);
+        REQUIRE(stringExecutionOrder[0] == "str-high");  // 优先级1
+        REQUIRE(stringExecutionOrder[1] == "str-low");   // 优先级10
+    }
+}
+
+// 测试重载模式下的复杂类型
+TEST_CASE("允许重载模式 - 复杂类型测试", "[ActionSystem][Overload][ComplexTypes]")
+{
+    StringActionSystemOverload system;
+    std::string actionKey = "complex_overload";
+
+    struct Point { int x; int y; };
+    struct Rect { Point pos; int width; int height; };
+
+    int pointProcessorCount = 0;
+    int rectProcessorCount = 0;
+    int mixedProcessorCount = 0;
+
+    // 添加结构体类型的处理器
+    system.AddSequentialProcessor(actionKey,
+        [&pointProcessorCount](const Point& p)
+        {
+            pointProcessorCount++;
+            std::cout << "点: (" << p.x << ", " << p.y << ")" << std::endl;
+        }, "点处理器");
+
+    system.AddSequentialProcessor(actionKey,
+        [&rectProcessorCount](const Rect& r)
+        {
+            rectProcessorCount++;
+            std::cout << "矩形: pos(" << r.pos.x << "," << r.pos.y
+                << "), size(" << r.width << "x" << r.height << ")" << std::endl;
+        }, "矩形处理器");
+
+    // 添加混合参数类型的处理器
+    system.AddSequentialProcessor(actionKey,
+        [&mixedProcessorCount](int a, const std::string& b, float c)
+        {
+            mixedProcessorCount++;
+            std::cout << "混合参数: " << a << ", " << b << ", " << c << std::endl;
+        }, "混合参数处理器");
+
+    SECTION("执行结构体参数")
+    {
+        Point p{ 10, 20 };
+        auto result = system.Execute(actionKey, p);
+        REQUIRE(result.success == true);
+        REQUIRE(pointProcessorCount == 1);
+        REQUIRE(rectProcessorCount == 0);
+    }
+
+    SECTION("执行复合结构体参数")
+    {
+        Rect r{ {0, 0}, 100, 200 };
+        auto result = system.Execute(actionKey, r);
+        REQUIRE(result.success == true);
+        REQUIRE(pointProcessorCount == 0);
+        REQUIRE(rectProcessorCount == 1);
+    }
+
+    SECTION("执行混合参数")
+    {
+        auto result = system.Execute(actionKey, 1, std::string("test"), 3.14f);
+        REQUIRE(result.success == true);
+        REQUIRE(mixedProcessorCount == 1);
+    }
+}
+
+// 测试重载模式下的处理器移除
+TEST_CASE("允许重载模式 - 处理器移除测试", "[ActionSystem][Overload][Removal]")
+{
+    StringActionSystemOverload system;
+    std::string actionKey = "removal_overload";
+
+    int intProcessorCount = 0;
+    int stringProcessorCount = 0;
+
+    // 添加不同参数类型的处理器
+    auto intHandle = system.AddSequentialProcessor(actionKey,
+        [&intProcessorCount](int value)
+        {
+            intProcessorCount++;
+        }, "整数处理器");
+
+    auto stringHandle = system.AddSequentialProcessor(actionKey,
+        [&stringProcessorCount](const std::string& value)
+        {
+            stringProcessorCount++;
+        }, "字符串处理器");
+
+    SECTION("移除整数处理器")
+    {
+        REQUIRE(system.RemoveHandler(intHandle) == true);
+
+        // 执行整数参数 - 应该失败，因为处理器已被移除
+        auto result = system.Execute(actionKey, 42);
+        REQUIRE(result.success == false);
+        REQUIRE(intProcessorCount == 0);
+
+        // 执行字符串参数 - 应该成功
+        result = system.Execute(actionKey, std::string("test"));
+        REQUIRE(result.success == true);
+        REQUIRE(stringProcessorCount == 1);
+    }
+
+    SECTION("移除字符串处理器")
+    {
+        REQUIRE(system.RemoveHandler(stringHandle) == true);
+
+        // 执行字符串参数 - 应该失败
+        auto result = system.Execute(actionKey, std::string("test"));
+        REQUIRE(result.success == false);
+        REQUIRE(stringProcessorCount == 0);
+
+        // 执行整数参数 - 应该成功
+        result = system.Execute(actionKey, 42);
+        REQUIRE(result.success == true);
+        REQUIRE(intProcessorCount == 1);
+    }
+
+    SECTION("检查处理器变体数量")
+    {
+        // 初始应有2个变体（整数和字符串）
+        REQUIRE(system.GetActionVariantCount(actionKey) == 2);
+
+        // 移除整数处理器，整数变体应该被清理（如果没有处理器了）
+        system.RemoveHandler(intHandle);
+
+        // 现在应该只有1个变体（字符串）
+        REQUIRE(system.GetActionVariantCount(actionKey) == 1);
+    }
+}
+
+// 测试重载模式下的统计信息
+TEST_CASE("允许重载模式 - 统计信息测试", "[ActionSystem][Overload][Statistics]")
+{
+    StringActionSystemOverload system;
+
+    // 创建多个重载的action
+    system.AddSequentialProcessor("action1", [](int x) {}, "int处理器");
+    system.AddSequentialProcessor("action1", [](float x) {}, "float处理器");
+
+    system.AddSequentialProcessor("action2", [](const std::string& s) {}, "string处理器");
+    system.AddSequentialProcessor("action2", [](int a, int b) {}, "双int处理器");
+
+    SECTION("检查统计信息")
+    {
+        std::string stats = system.GetStatistics();
+        REQUIRE_FALSE(stats.empty());
+
+        // 检查是否包含重载相关的信息
+        REQUIRE(stats.find("Mode: Allow Overload") != std::string::npos);
+        REQUIRE(stats.find("Total Variants: 4") != std::string::npos);  // 2个action，每个2个变体
+
+        // 检查具体action的统计
+        REQUIRE(stats.find("Action Key: action1") != std::string::npos);
+        REQUIRE(stats.find("Action Key: action2") != std::string::npos);
+    }
+}
+
+// 测试重载与非重载系统的互操作性
+TEST_CASE("重载与非重载系统比较", "[ActionSystem][Comparison]")
+{
+    //SECTION("检查两种模式的类型定义")
+    //{
+    //    // 检查类型别名是否正确
+    //    static_assert(std::is_same<decltype(StringActionSystem::AllowOverload), const bool>::value,
+    //        "StringActionSystem应该有AllowOverload成员");
+    //    static_assert(StringActionSystem::AllowOverload == false,
+    //        "StringActionSystem默认不应允许重载");
+
+    //    static_assert(StringActionSystemOverload::AllowOverload == true,
+    //        "StringActionSystemOverload应允许重载");
+    //}
+
+    SECTION("使用模式特定的功能")
+    {
+        StringActionSystem nonOverload;
+        StringActionSystemOverload overload;
+
+        // 非重载模式：同一action只能有一种参数类型
+        nonOverload.AddSequentialProcessor("test", [](int x) {}, "int处理器");
+
+        // 重载模式：同一action可以有多种参数类型
+        overload.AddSequentialProcessor("test", [](int x) {}, "int处理器");
+        overload.AddSequentialProcessor("test", [](float x) {}, "float处理器");
+        overload.AddSequentialProcessor("test", [](const std::string& x) {}, "string处理器");
+
+        // 验证
+        REQUIRE(nonOverload.HasActionWithArgs<int>("test") == true);
+        REQUIRE(nonOverload.HasActionWithArgs<float>("test") == false);  // 只有int
+
+        REQUIRE(overload.HasActionWithArgs<int>("test") == true);
+        REQUIRE(overload.HasActionWithArgs<float>("test") == true);
+        REQUIRE(overload.HasActionWithArgs<std::string>("test") == true);
+    }
+}
+
+// 测试边界情况
+TEST_CASE("允许重载模式 - 边界情况测试", "[ActionSystem][Overload][EdgeCases]")
+{
+    StringActionSystemOverload system;
+
+    SECTION("空参数列表的重载")
+    {
+        int voidCount = 0;
+        int intCount = 0;
+
+        system.AddSequentialProcessor("void_action",
+            [&voidCount]() { voidCount++; }, "无参处理器");
+
+        system.AddSequentialProcessor("void_action",
+            [&intCount](int x) { intCount++; }, "有参处理器");
+
+        SECTION("执行无参版本")
+        {
+            auto result = system.Execute("void_action");
+            REQUIRE(result.success == true);
+            REQUIRE(voidCount == 1);
+            REQUIRE(intCount == 0);
+        }
+
+        SECTION("执行有参版本")
+        {
+            auto result = system.Execute("void_action", 42);
+            REQUIRE(result.success == true);
+            REQUIRE(voidCount == 0);
+            REQUIRE(intCount == 1);
+        }
+    }
+
+    SECTION("引用类型和值类型的重载")
+    {
+        int refCount = 0;
+        int valueCount = 0;
+
+        system.AddSequentialProcessor("ref_test",
+            [&refCount](std::string& s) { refCount++; s += "_modified"; }, "引用处理器");
+
+        system.AddSequentialProcessor("ref_test",
+            [&valueCount](std::string s) { valueCount++; }, "值处理器");
+
+        SECTION("执行引用版本")
+        {
+            std::string str = "original";
+            auto result = system.Execute("ref_test", str);
+            REQUIRE(result.success == true);
+            REQUIRE(refCount == 1);
+            REQUIRE(valueCount == 0);
+            REQUIRE(str == "original_modified");  // 引用被修改
+        }
+
+        SECTION("执行值版本")
+        {
+            auto result = system.Execute("ref_test", std::string("value"));
+            REQUIRE(result.success == true);
+            REQUIRE(refCount == 0);
+            REQUIRE(valueCount == 1);
+        }
+    }
+}
+
+// 测试性能相关
+TEST_CASE("允许重载模式 - 性能相关测试", "[ActionSystem][Overload][Performance]")
+{
+    StringActionSystemOverload system;
+    const int NUM_OVERLOADS = 10;
+
+    // 添加大量重载版本
+    for (int i = 0; i < NUM_OVERLOADS; ++i)
+    {
+        // 为每个类型创建不同的lambda，模拟不同的处理器
+        system.AddSequentialProcessor("performance_test",
+            [i](int value)
+            {
+                // 简单操作
+                [[maybe_unused]] auto result = value + i;
+            },
+            "处理器_" + std::to_string(i));
+
+        system.AddSequentialProcessor("performance_test",
+            [i](float value)
+            {
+                [[maybe_unused]] auto result = value * i;
+            },
+            "浮点处理器_" + std::to_string(i));
+    }
+
+    SECTION("执行大量重载查找")
+    {
+        // 执行整数版本
+        auto result = system.Execute("performance_test", 100);
+        REQUIRE(result.success == true);
+        REQUIRE(result.executedProcessors == NUM_OVERLOADS);
+
+        // 执行浮点版本
+        result = system.Execute("performance_test", 100.0f);
+        REQUIRE(result.success == true);
+        REQUIRE(result.executedProcessors == NUM_OVERLOADS);
+    }
+}
+
+// 测试与原有系统的兼容性
+TEST_CASE("向后兼容性测试", "[ActionSystem][Compatibility]")
+{
+    // 测试原有代码是否仍然工作
+    SECTION("原有测试用例应仍然通过")
+    {
+        StringActionSystem system;  // 默认（不允许重载）
+
+        // 原有测试用例的代码应该仍然工作
+        system.AddSequentialProcessor("old_action",
+            [](int x) { std::cout << "旧处理器: " << x << std::endl; },
+            "旧处理器");
+
+        auto result = system.Execute("old_action", 42);
+        REQUIRE(result.success == true);
+    }
+
+    SECTION("类型别名应正确工作")
+    {
+        // 测试所有类型别名
+        IntActionSystem intSystem;
+        IntActionSystemOverload intOverloadSystem;
+        EnumActionSystem enumSystem;
+
+        // 确保它们都能正常工作
+        intSystem.AddSequentialProcessor(1, [](int x) {}, "int处理器");
+        intOverloadSystem.AddSequentialProcessor(1, [](int x) {}, "int处理器");
+        intOverloadSystem.AddSequentialProcessor(1, [](float x) {}, "float处理器");
+        enumSystem.AddSequentialProcessor(100, [](const std::string& s) {}, "enum处理器");
+
+        REQUIRE(intSystem.HasAction(1) == true);
+        REQUIRE(intOverloadSystem.HasAction(1) == true);
+        REQUIRE(enumSystem.HasAction(100) == true);
+    }
+}

@@ -11,12 +11,15 @@
 #include <random>
 #include <iomanip>
 #include <algorithm>
+#include <variant>
 #include "Type_Check.h"
 
 /*
 *   ！！！注意！！！
 *   使用值类型作为订阅参数时，会在被调用时触发移动语义（如果有移动语义），导致只有第一个订阅触发得到资源。复杂对象尽量使用引用。
+*   
 */
+
 
 // Action类型
 enum class ActionHandlerType
@@ -436,8 +439,15 @@ private:
     }
 };
 
-// Action系统主类
-template<typename KeyType, typename Hash = std::hash<KeyType>, typename KeyEqual = std::equal_to<KeyType>>
+/* Action系统主类
+*模板参数[0]KeyType-Action键值类型
+*模板参数[1]AllowOverload-是否允许事件重载，若为true,同一键值的事件可以有不同的参数列表，execute时会自动执行匹配的事件;
+*若为false,在添加处理器时，以第一个添加的处理器参数列表为事件参数列表，后续添加处理器若参数不同，将添加失败;
+*（注意：目前引用无法构成重载-详见测试工程：ActionSystenTest.cpp - SECTION("引用类型和值类型的重载")）
+*模板参数[2]Hash-键值类型的哈希函数
+*模板参数[3]KeyEqual-键值类型判等函数
+*/
+template<typename KeyType, bool AllowOverload = false, typename Hash = std::hash<KeyType>, typename KeyEqual = std::equal_to<KeyType>>
 class ActionSystem
 {
 private:
@@ -455,6 +465,8 @@ private:
         virtual std::string GetStatistics() const = 0;
         // 新增：字节码执行接口（支持完美转发）
         virtual ActionResult ExecuteWithForward(void* args[]) = 0;
+        // 新增：检查参数是否匹配
+        virtual bool CheckArgsMatch(const std::string& argTypes, size_t argCount) const = 0;
     };
 
     template<typename... Args>
@@ -462,6 +474,8 @@ private:
     {
     private:
         ActionProcessorContainer<KeyType, Args...> container_;
+        
+        // 类型检查辅助方法
         template<typename T, typename... Rest>
         bool CheckArgTypes(void* args[]) const
         {
@@ -483,13 +497,6 @@ private:
             return arg != nullptr;
         }
 
-        // 准备参数指针数组（借鉴EventBus）
-        template<typename Tuple, size_t... Is>
-        void PrepareArgPointers(void* pointers[], Tuple& tuple, std::index_sequence<Is...>) const
-        {
-            ((pointers[Is] = static_cast<void*>(&std::get<Is>(tuple))), ...);
-        }
-
         // 带参数执行的实现
         template<size_t... Is>
         ActionResult ExecuteWithArgs(void* args[], std::index_sequence<Is...>)
@@ -509,6 +516,7 @@ private:
                     )...
             );
         }
+        
     public:
         ActionResult Execute(Args... args)
         {
@@ -526,6 +534,12 @@ private:
             {
                 return ExecuteWithArgs(args, std::index_sequence_for<Args...>{});
             }
+        }
+
+        // 检查参数是否匹配
+        bool CheckArgsMatch(const std::string& argTypes, size_t argCount) const override
+        {
+            return (GetArgTypes() == argTypes) && (GetArgCount() == argCount);
         }
 
         void AddValidator(const ActionHandle<KeyType>& handle,
@@ -612,7 +626,14 @@ private:
         }
     };
 
-    std::unordered_map<KeyType, std::unique_ptr<IActionProcessorWrapper>, Hash, KeyEqual> actions_;
+    // 根据不同模式选择存储结构
+    using ActionStorage = typename std::conditional<
+        AllowOverload,
+        std::unordered_map<KeyType, std::vector<std::unique_ptr<IActionProcessorWrapper>>, Hash, KeyEqual>,
+        std::unordered_map<KeyType, std::unique_ptr<IActionProcessorWrapper>, Hash, KeyEqual>
+    >::type;
+
+    ActionStorage actions_;
     std::unordered_map<ActionHandle<KeyType>, KeyType, typename ActionHandle<KeyType>::Hash> handleToActionMap_;
 
     // 新增：全局动作监听器容器
@@ -835,8 +856,32 @@ private:
     {
         ActionHandle<KeyType> handle(nextHandleId_++, actionKey, type);
 
-        auto* processor = GetOrCreateProcessor<Args...>(actionKey);
+        if constexpr (AllowOverload)
+        {
+            // 允许重载模式：直接创建或获取对应类型的处理器包装器
+            auto* processor = GetOrCreateProcessor<Args...>(actionKey);
+            AddHandlerToProcessor(processor, handle, std::move(handler), type, description, priority);
+        }
+        else
+        {
+            // 不允许重载模式：需要检查参数类型是否匹配
+            auto* processor = GetOrCreateProcessorWithCheck<Args...>(actionKey);
+            AddHandlerToProcessor(processor, handle, std::move(handler), type, description, priority);
+        }
 
+        handleToActionMap_[handle] = actionKey;
+        return handle;
+    }
+
+    // 添加处理器到包装器的辅助函数
+    template<typename... Args>
+    void AddHandlerToProcessor(ActionProcessorWrapper<Args...>* processor,
+        const ActionHandle<KeyType>& handle,
+        std::function<void(Args...)> handler,
+        ActionHandlerType type,
+        const std::string& description,
+        int priority)
+    {
         switch (type)
         {
         case ActionHandlerType::Validator:
@@ -863,9 +908,6 @@ private:
             processor->AddListener(handle, std::move(handler), type, description, priority);
             break;
         }
-
-        handleToActionMap_[handle] = actionKey;
-        return handle;
     }
 
     // 验证器的特殊处理（返回bool）
@@ -1046,8 +1088,8 @@ private:
         }
         else
         {
-        static_assert(traits::arity <= 9, "只支持最多9个参数");
-        return ActionHandle<KeyType>();
+            static_assert(traits::arity <= 9, "只支持最多9个参数");
+            return ActionHandle<KeyType>();
         }
     }
 
@@ -1059,23 +1101,85 @@ private:
     {
         ActionHandle<KeyType> handle(nextHandleId_++, actionKey, ActionHandlerType::Validator);
 
-        auto* processor = GetOrCreateProcessor<Args...>(actionKey);
-        processor->AddValidator(handle, std::move(validator), description, priority);
+        if constexpr (AllowOverload)
+        {
+            // 允许重载模式
+            auto* processor = GetOrCreateProcessor<Args...>(actionKey);
+            processor->AddValidator(handle, std::move(validator), description, priority);
+        }
+        else
+        {
+            // 不允许重载模式
+            auto* processor = GetOrCreateProcessorWithCheck<Args...>(actionKey);
+            processor->AddValidator(handle, std::move(validator), description, priority);
+        }
 
         handleToActionMap_[handle] = actionKey;
         return handle;
     }
 
+    // 允许重载模式下的处理器获取/创建
     template<typename... Args>
     ActionProcessorWrapper<Args...>* GetOrCreateProcessor(const KeyType& actionKey)
     {
+        if constexpr (AllowOverload)
+        {
+            // 允许重载：查找或创建对应参数类型的包装器
+            std::string argTypes = type_check::get_template_args_info<Args...>();
+            size_t argCount = sizeof...(Args);
+            
+            auto& wrappers = actions_[actionKey];
+            
+            // 查找是否已存在相同参数类型的包装器
+            for (auto& wrapper : wrappers)
+            {
+                if (wrapper->CheckArgsMatch(argTypes, argCount))
+                {
+                    auto* typedWrapper = dynamic_cast<ActionProcessorWrapper<Args...>*>(wrapper.get());
+                    if (typedWrapper)
+                    {
+                        return typedWrapper;
+                    }
+                }
+            }
+            
+            // 不存在则创建新的
+            auto newWrapper = std::make_unique<ActionProcessorWrapper<Args...>>();
+            auto* ptr = newWrapper.get();
+            wrappers.push_back(std::move(newWrapper));
+            return ptr;
+        }
+        else
+        {
+            // 不允许重载：使用原逻辑（但不会执行到这里）
+            throw std::runtime_error("Invalid call to GetOrCreateProcessor in non-overload mode");
+        }
+    }
+
+    // 不允许重载模式下的处理器获取/创建（带类型检查）
+    template<typename... Args>
+    ActionProcessorWrapper<Args...>* GetOrCreateProcessorWithCheck(const KeyType& actionKey)
+    {
+        static_assert(!AllowOverload, "This method should only be called in non-overload mode");
+        
         auto it = actions_.find(actionKey);
         if (it == actions_.end())
         {
+            // 不存在，创建新的
             auto wrapper = std::make_unique<ActionProcessorWrapper<Args...>>();
             auto* ptr = wrapper.get();
             actions_[actionKey] = std::move(wrapper);
             return ptr;
+        }
+
+        // 存在，检查类型是否匹配
+        std::string expectedArgTypes = type_check::get_template_args_info<Args...>();
+        size_t expectedArgCount = sizeof...(Args);
+        
+        if (it->second->GetArgTypes() != expectedArgTypes || 
+            it->second->GetArgCount() != expectedArgCount)
+        {
+            throw std::runtime_error("Action parameter type mismatch for key in non-overload mode");
         }
 
         auto* existing = dynamic_cast<ActionProcessorWrapper<Args...>*>(it->second.get());
@@ -1085,6 +1189,44 @@ private:
         }
 
         return existing;
+    }
+
+    // 查找匹配的处理器（用于允许重载模式下的执行）
+    template<typename... Args>
+    IActionProcessorWrapper* FindMatchingProcessor(const KeyType& actionKey)
+    {
+        if constexpr (!AllowOverload)
+        {
+            // 不允许重载：直接查找
+            auto it = actions_.find(actionKey);
+            if (it == actions_.end())
+            {
+                return nullptr;
+            }
+            return it->second.get();
+        }
+        else
+        {
+            // 允许重载：在向量中查找匹配的处理器
+            auto it = actions_.find(actionKey);
+            if (it == actions_.end())
+            {
+                return nullptr;
+            }
+
+            std::string argTypes = type_check::get_template_args_info<Args...>();
+            size_t argCount = sizeof...(Args);
+            
+            for (auto& wrapper : it->second)
+            {
+                if (wrapper->CheckArgsMatch(argTypes, argCount))
+                {
+                    return wrapper.get();
+                }
+            }
+            
+            return nullptr;
+        }
     }
 
 public:
@@ -1154,8 +1296,16 @@ public:
     {
         ActionHandle<KeyType> handle(nextHandleId_++, actionKey, ActionHandlerType::Validator);
 
-        auto* processor = GetOrCreateProcessor<Args...>(actionKey);
-        processor->AddValidator(handle, std::move(validator), description, priority);
+        if constexpr (AllowOverload)
+        {
+            auto* processor = GetOrCreateProcessor<Args...>(actionKey);
+            processor->AddValidator(handle, std::move(validator), description, priority);
+        }
+        else
+        {
+            auto* processor = GetOrCreateProcessorWithCheck<Args...>(actionKey);
+            processor->AddValidator(handle, std::move(validator), description, priority);
+        }
 
         handleToActionMap_[handle] = actionKey;
         return handle;
@@ -1170,8 +1320,16 @@ public:
     {
         ActionHandle<KeyType> handle(nextHandleId_++, actionKey, ActionHandlerType::SequentialProcessor);
 
-        auto* processorWrapper = GetOrCreateProcessor<Args...>(actionKey);
-        processorWrapper->AddSequentialProcessor(handle, std::move(processor), description, priority);
+        if constexpr (AllowOverload)
+        {
+            auto* processorWrapper = GetOrCreateProcessor<Args...>(actionKey);
+            processorWrapper->AddSequentialProcessor(handle, std::move(processor), description, priority);
+        }
+        else
+        {
+            auto* processorWrapper = GetOrCreateProcessorWithCheck<Args...>(actionKey);
+            processorWrapper->AddSequentialProcessor(handle, std::move(processor), description, priority);
+        }
 
         handleToActionMap_[handle] = actionKey;
         return handle;
@@ -1186,8 +1344,16 @@ public:
     {
         ActionHandle<KeyType> handle(nextHandleId_++, actionKey, ActionHandlerType::FinalProcessor);
 
-        auto* processorWrapper = GetOrCreateProcessor<Args...>(actionKey);
-        processorWrapper->SetFinalProcessor(handle, std::move(processor), description, priority);
+        if constexpr (AllowOverload)
+        {
+            auto* processorWrapper = GetOrCreateProcessor<Args...>(actionKey);
+            processorWrapper->SetFinalProcessor(handle, std::move(processor), description, priority);
+        }
+        else
+        {
+            auto* processorWrapper = GetOrCreateProcessorWithCheck<Args...>(actionKey);
+            processorWrapper->SetFinalProcessor(handle, std::move(processor), description, priority);
+        }
 
         handleToActionMap_[handle] = actionKey;
         return handle;
@@ -1203,8 +1369,16 @@ public:
     {
         ActionHandle<KeyType> handle(nextHandleId_++, actionKey, type);
 
-        auto* processorWrapper = GetOrCreateProcessor<Args...>(actionKey);
-        processorWrapper->AddListener(handle, std::move(listener), type, description, priority);
+        if constexpr (AllowOverload)
+        {
+            auto* processorWrapper = GetOrCreateProcessor<Args...>(actionKey);
+            processorWrapper->AddListener(handle, std::move(listener), type, description, priority);
+        }
+        else
+        {
+            auto* processorWrapper = GetOrCreateProcessorWithCheck<Args...>(actionKey);
+            processorWrapper->AddListener(handle, std::move(listener), type, description, priority);
+        }
 
         handleToActionMap_[handle] = actionKey;
         return handle;
@@ -1250,51 +1424,25 @@ public:
     template<typename... Args>
     ActionResult Execute(const KeyType& actionKey, Args&&... args)
     {
-        auto it = actions_.find(actionKey);
-        if (it == actions_.end())
+        IActionProcessorWrapper* wrapper = FindMatchingProcessor<Args...>(actionKey);
+        if (!wrapper)
         {
             ActionResult result;
-            result.errorMessage = "Action not found";
+            result.errorMessage = "Action not found or no matching parameter types";
 
             // 即使找不到action，也通知全局监听器
             NotifyGlobalListeners(actionKey, result);
             return result;
         }
 
-        // 使用类型名称验证替代dynamic_cast
-        std::string expectedArgTypes = type_check::get_template_args_info<std::decay_t<Args>...>();
-        if (it->second->GetArgTypes() != expectedArgTypes)
-        {
-            ActionResult result;
-            result.errorMessage = "Action parameter type mismatch. Expected: " +
-                it->second->GetArgTypes() + ", but got: " + expectedArgTypes;
-
-            // 类型不匹配时也通知全局监听器
-            NotifyGlobalListeners(actionKey, result);
-            return result;
-        }
-
-        // 检查参数数量
-        if (it->second->GetArgCount() != sizeof...(Args))
-        {
-            ActionResult result;
-            result.errorMessage = "Action parameter count mismatch. Expected: " +
-                std::to_string(it->second->GetArgCount()) +
-                ", but got: " + std::to_string(sizeof...(Args));
-
-            NotifyGlobalListeners(actionKey, result);
-            return result;
-        }
-
-        // 准备参数存储和指针数组（支持完美转发）
-        //auto argStorage = std::make_tuple(std::forward<Args>(args)...);//不再创建副本
+        // 准备参数指针数组（支持完美转发）
         void* argPointers[sizeof...(Args) + 1] = {};
 
         // 准备参数指针
         PrepareArgPointers(argPointers, std::tie(args...), std::index_sequence_for<Args...>{});
 
         // 执行action
-        ActionResult result = it->second->ExecuteWithForward(argPointers);
+        ActionResult result = wrapper->ExecuteWithForward(argPointers);
 
         // 通知全局监听器
         NotifyGlobalListeners(actionKey, result);
@@ -1319,19 +1467,48 @@ public:
         }
 
         const auto& actionKey = it->second;
-        auto actionIt = actions_.find(actionKey);
-        if (actionIt == actions_.end())
+        
+        if constexpr (AllowOverload)
         {
+            // 允许重载模式：遍历所有包装器
+            auto actionIt = actions_.find(actionKey);
+            if (actionIt == actions_.end())
+            {
+                return false;
+            }
+            
+            for (auto& wrapper : actionIt->second)
+            {
+                if (wrapper->RemoveHandler(handle))
+                {
+                    // 如果包装器为空，移除它
+                    auto newEnd = std::remove_if(actionIt->second.begin(), actionIt->second.end(),
+                        [](const auto& w) { return w->GetTotalHandlers() == 0; });
+                    actionIt->second.erase(newEnd, actionIt->second.end());
+                    
+                    handleToActionMap_.erase(it);
+                    return true;
+                }
+            }
             return false;
         }
-
-        bool removed = actionIt->second->RemoveHandler(handle);
-        if (removed)
+        else
         {
-            handleToActionMap_.erase(it);
-        }
+            // 不允许重载模式
+            auto actionIt = actions_.find(actionKey);
+            if (actionIt == actions_.end())
+            {
+                return false;
+            }
 
-        return removed;
+            bool removed = actionIt->second->RemoveHandler(handle);
+            if (removed)
+            {
+                handleToActionMap_.erase(it);
+            }
+
+            return removed;
+        }
     }
 
     // 检查是否存在
@@ -1340,10 +1517,65 @@ public:
         return actions_.find(actionKey) != actions_.end();
     }
 
+    // 检查是否存在特定参数类型的处理器
+    template<typename... Args>
+    bool HasActionWithArgs(const KeyType& actionKey) const
+    {
+        auto it = actions_.find(actionKey);
+        if (it == actions_.end())
+        {
+            return false;
+        }
+
+        if constexpr (AllowOverload)
+        {
+            // 允许重载：检查是否有匹配的包装器
+            std::string argTypes = type_check::get_template_args_info<Args...>();
+            size_t argCount = sizeof...(Args);
+            
+            for (const auto& wrapper : it->second)
+            {
+                if (wrapper->CheckArgsMatch(argTypes, argCount))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        else
+        {
+            // 不允许重载：检查参数类型是否匹配
+            std::string expectedArgTypes = type_check::get_template_args_info<Args...>();
+            size_t expectedArgCount = sizeof...(Args);
+            
+            return (it->second->GetArgTypes() == expectedArgTypes && 
+                   it->second->GetArgCount() == expectedArgCount);
+        }
+    }
+
     // 获取全局监听器数量
     size_t GetGlobalCompletionListenerCount() const
     {
         return globalCompletionListeners_.size();
+    }
+
+    // 获取动作的处理器变体数量（对于允许重载的情况）
+    size_t GetActionVariantCount(const KeyType& actionKey) const
+    {
+        auto it = actions_.find(actionKey);
+        if (it == actions_.end())
+        {
+            return 0;
+        }
+        
+        if constexpr (AllowOverload)
+        {
+            return it->second.size();
+        }
+        else
+        {
+            return it->second ? 1 : 0;
+        }
     }
 
     // 清空全局监听器
@@ -1367,14 +1599,59 @@ public:
     {
         std::stringstream ss;
         ss << "=== ActionSystem Statistics ===\n";
-        ss << "Total Actions: " << actions_.size() << "\n";
-        ss << "Total Handlers: " << handleToActionMap_.size() << "\n";
-        ss << "Global Completion Listeners: " << globalCompletionListeners_.size() << "\n\n";  // 新增
-
-        for (const auto& [actionKey, wrapper] : actions_)
+        ss << "Mode: " << (AllowOverload ? "Allow Overload" : "No Overload") << "\n";
+        
+        size_t totalActions = 0;
+        size_t totalVariants = 0;
+        size_t totalHandlers = handleToActionMap_.size();
+        
+        for (const auto& entry : actions_)
         {
-            ss << "Action Key: " << " [type: " << typeid(KeyType).name() << "]\n";
-            ss << wrapper->GetStatistics() << "\n\n";
+            totalActions++;
+            if constexpr (AllowOverload)
+            {
+                totalVariants += entry.second.size();
+                for (const auto& wrapper : entry.second)
+                {
+                    totalHandlers += wrapper->GetTotalHandlers();
+                }
+            }
+            else
+            {
+                if (entry.second)
+                {
+                    totalVariants++;
+                    totalHandlers += entry.second->GetTotalHandlers();
+                }
+            }
+        }
+        
+        ss << "Total Actions: " << totalActions << "\n";
+        ss << "Total Variants: " << totalVariants << "\n";
+        ss << "Total Handlers: " << totalHandlers << "\n";
+        ss << "Global Completion Listeners: " << globalCompletionListeners_.size() << "\n\n";
+
+        for (const auto& [actionKey, wrapperOrVector] : actions_)
+        {
+            ss << "Action Key: " << actionKey << "\n";
+            
+            if constexpr (AllowOverload)
+            {
+                for (const auto& wrapper : wrapperOrVector)
+                {
+                    ss << "  Variant: " << wrapper->GetArgTypes() << "\n";
+                    ss << wrapper->GetStatistics() << "\n";
+                }
+            }
+            else
+            {
+                if (wrapperOrVector)
+                {
+                    ss << "  Type: " << wrapperOrVector->GetArgTypes() << "\n";
+                    ss << wrapperOrVector->GetStatistics() << "\n";
+                }
+            }
+            ss << "\n";
         }
 
         ss << "===============================";
@@ -1382,8 +1659,11 @@ public:
     }
 };
 
-// 为常用键类型提供别名
+// 为常用键类型提供别名（保持向后兼容，默认不允许重载）
 using StringActionSystem = ActionSystem<std::string>;
 using IntActionSystem = ActionSystem<int>;
 using EnumActionSystem = ActionSystem<int>; // 用于枚举类型
 
+// 新增：允许重载的别名
+using StringActionSystemOverload = ActionSystem<std::string, true>;
+using IntActionSystemOverload = ActionSystem<int, true>;
