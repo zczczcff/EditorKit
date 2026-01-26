@@ -1203,7 +1203,18 @@ private:
             {
                 return nullptr;
             }
-            return it->second.get();
+            std::string argTypes = type_check::get_template_args_info<Args...>();
+            size_t argCount = sizeof...(Args);
+
+            if (it->second->CheckArgsMatch(argTypes, argCount))
+            {
+                return it->second.get();
+            }
+            else
+            {
+                return nullptr;
+            }
+            
         }
         else
         {
