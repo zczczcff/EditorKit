@@ -1,8 +1,51 @@
-﻿# 设置库版本
+﻿cmake_minimum_required(VERSION 3.15)
+
+# 设置项目名称和语言
+project(EditorKit LANGUAGES CXX C)
+
+# 设置策略 CMP0144 的行为
+if (POLICY CMP0144)
+    cmake_policy(SET CMP0144 NEW)
+endif ()
+
+# 设置库版本
 set(EDITORKIT_VERSION_MAJOR 1)
 set(EDITORKIT_VERSION_MINOR 0)
 set(EDITORKIT_VERSION_PATCH 0)
 set(EDITORKIT_VERSION "${EDITORKIT_VERSION_MAJOR}.${EDITORKIT_VERSION_MINOR}.${EDITORKIT_VERSION_PATCH}")
+
+# 从环境变量获取Boost根目录（如果有）
+if(DEFINED ENV{Boost_ROOT})
+    set(BOOST_ROOT $ENV{Boost_ROOT} CACHE PATH "Boost根目录")
+    set(BOOST_INCLUDEDIR ${BOOST_ROOT})
+    set(BOOST_LIBRARYDIR ${BOOST_ROOT}/lib)
+    message(STATUS "使用环境变量中的Boost_ROOT: ${BOOST_ROOT}")
+endif()
+
+# 简化版：只包含Boost头文件
+find_package(Boost QUIET)
+
+if(NOT Boost_FOUND)
+    # 尝试通过环境变量或自定义路径查找
+    if(DEFINED ENV{BOOST_ROOT})
+        set(BOOST_ROOT $ENV{BOOST_ROOT})
+        set(BOOST_INCLUDEDIR ${BOOST_ROOT})
+    endif()
+    
+    # 查找Boost头文件
+    find_path(Boost_INCLUDE_DIRS
+        NAMES boost/version.hpp
+        PATHS ${BOOST_ROOT} ${BOOST_INCLUDEDIR}
+        PATH_SUFFIXES include
+    )
+    
+    if(Boost_INCLUDE_DIRS)
+        set(Boost_FOUND TRUE)
+        message(STATUS "Boost头文件找到: ${Boost_INCLUDE_DIRS}")
+    else()
+        message(WARNING "Boost库未找到，可能需要手动设置BOOST_ROOT环境变量")
+    endif()
+endif()
 
 # 递归查找所有源文件
 # 注意：使用GLOB时，如果添加新文件需要重新运行cmake
@@ -38,6 +81,7 @@ else()
     add_library(EditorKit INTERFACE)
 endif()
 
+
 # 设置目标属性
 set_target_properties(EditorKit PROPERTIES
     VERSION ${EDITORKIT_VERSION}
@@ -54,6 +98,13 @@ set_target_properties(EditorKit PROPERTIES
 
 # 设置包含目录
 if(TARGET EditorKit)
+    # 添加Boost头文件包含
+    if(Boost_INCLUDE_DIRS)
+        target_include_directories(EditorKit
+            PUBLIC
+                ${Boost_INCLUDE_DIRS}
+        )
+    endif()
     target_include_directories(EditorKit
         PUBLIC 
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>

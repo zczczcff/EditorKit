@@ -1135,7 +1135,7 @@ private:
             {
                 if (wrapper->CheckArgsMatch(argTypes, argCount))
                 {
-                    auto* typedWrapper = dynamic_cast<ActionProcessorWrapper<Args...>*>(wrapper.get());
+                    auto* typedWrapper = static_cast<ActionProcessorWrapper<Args...>*>(wrapper.get());
                     if (typedWrapper)
                     {
                         return typedWrapper;
@@ -1182,7 +1182,7 @@ private:
             throw std::runtime_error("Action parameter type mismatch for key in non-overload mode");
         }
 
-        auto* existing = dynamic_cast<ActionProcessorWrapper<Args...>*>(it->second.get());
+        auto* existing = static_cast<ActionProcessorWrapper<Args...>*>(it->second.get());
         if (!existing)
         {
             throw std::runtime_error("Action parameter type mismatch for key");

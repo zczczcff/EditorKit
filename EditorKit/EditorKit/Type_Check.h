@@ -3,6 +3,10 @@
 #include <typeindex>
 #include <type_traits>
 #include <string>
+#include <boost/type_index/ctti_type_index.hpp>
+
+using boost::typeindex::ctti_type_index;
+
 // 类型检查和工具函数
 namespace type_check
 {
@@ -22,7 +26,7 @@ namespace type_check
     template<typename T>
     std::string get_type_name()
     {
-        return std::string(typeid(T).name());
+        return std::string(ctti_type_index::type_id<T>().pretty_name());
     }
 
     // 构建类型名称字符串

@@ -729,7 +729,7 @@ TEST_CASE("重载与非重载系统比较", "[ActionSystem][Comparison]")
         overload.AddSequentialProcessor("test", [](int x) {}, "int处理器");
         overload.AddSequentialProcessor("test", [](float x) {}, "float处理器");
         overload.AddSequentialProcessor("test", [](const std::string& x) {}, "string处理器");
-
+        auto result = nonOverload.Execute("test", std::string("test"), 3);
         // 验证
         REQUIRE(nonOverload.HasActionWithArgs<int>("test") == true);
         REQUIRE(nonOverload.HasActionWithArgs<float>("test") == false);  // 只有int
