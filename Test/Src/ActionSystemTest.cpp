@@ -396,13 +396,12 @@ TEST_CASE("不允许重载模式 - 类型冲突测试", "[ActionSystem][NonOverl
             }, "第一个处理器");
 
         // 尝试添加字符串处理器 - 应该抛出异常
-        REQUIRE_THROWS_AS(
+        REQUIRE_FALSE(
             system.AddSequentialProcessor(actionKey,
                 [](const std::string& value)
                 {
                     std::cout << "字符串处理器" << std::endl;
-                }, "第二个处理器"),
-            std::runtime_error
+                }, "第二个处理器").isValid()
                     );
     }
 

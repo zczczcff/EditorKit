@@ -59,6 +59,11 @@ public:
 
     bool isValid() const { return id_ != 0; }
 
+    operator bool() const noexcept
+    {
+        return isValid();
+    }
+
     struct Hash
     {
         size_t operator()(const ActionHandle& handle) const
@@ -854,23 +859,36 @@ private:
         const std::string& description,
         int priority)
     {
-        ActionHandle<KeyType> handle(nextHandleId_++, actionKey, type);
-
         if constexpr (AllowOverload)
         {
             // 允许重载模式：直接创建或获取对应类型的处理器包装器
             auto* processor = GetOrCreateProcessor<Args...>(actionKey);
+            if (!processor)
+            {
+                // 创建处理器失败，返回无效handle
+                return ActionHandle<KeyType>();
+            }
+
+            ActionHandle<KeyType> handle(nextHandleId_++, actionKey, type);
             AddHandlerToProcessor(processor, handle, std::move(handler), type, description, priority);
+            handleToActionMap_[handle] = actionKey;
+            return handle;
         }
         else
         {
             // 不允许重载模式：需要检查参数类型是否匹配
             auto* processor = GetOrCreateProcessorWithCheck<Args...>(actionKey);
-            AddHandlerToProcessor(processor, handle, std::move(handler), type, description, priority);
-        }
+            if (!processor)
+            {
+                // 参数类型不匹配或获取处理器失败，返回无效handle
+                return ActionHandle<KeyType>();
+            }
 
-        handleToActionMap_[handle] = actionKey;
-        return handle;
+            ActionHandle<KeyType> handle(nextHandleId_++, actionKey, type);
+            AddHandlerToProcessor(processor, handle, std::move(handler), type, description, priority);
+            handleToActionMap_[handle] = actionKey;
+            return handle;
+        }
     }
 
     // 添加处理器到包装器的辅助函数
@@ -1099,23 +1117,36 @@ private:
         const std::string& description,
         int priority)
     {
-        ActionHandle<KeyType> handle(nextHandleId_++, actionKey, ActionHandlerType::Validator);
-
         if constexpr (AllowOverload)
         {
             // 允许重载模式
             auto* processor = GetOrCreateProcessor<Args...>(actionKey);
+            if (!processor)
+            {
+                // 创建处理器失败，返回无效handle
+                return ActionHandle<KeyType>();
+            }
+
+            ActionHandle<KeyType> handle(nextHandleId_++, actionKey, ActionHandlerType::Validator);
             processor->AddValidator(handle, std::move(validator), description, priority);
+            handleToActionMap_[handle] = actionKey;
+            return handle;
         }
         else
         {
             // 不允许重载模式
             auto* processor = GetOrCreateProcessorWithCheck<Args...>(actionKey);
-            processor->AddValidator(handle, std::move(validator), description, priority);
-        }
+            if (!processor)
+            {
+                // 参数类型不匹配或获取处理器失败，返回无效handle
+                return ActionHandle<KeyType>();
+            }
 
-        handleToActionMap_[handle] = actionKey;
-        return handle;
+            ActionHandle<KeyType> handle(nextHandleId_++, actionKey, ActionHandlerType::Validator);
+            processor->AddValidator(handle, std::move(validator), description, priority);
+            handleToActionMap_[handle] = actionKey;
+            return handle;
+        }
     }
 
     // 允许重载模式下的处理器获取/创建
@@ -1152,7 +1183,8 @@ private:
         else
         {
             // 不允许重载：使用原逻辑（但不会执行到这里）
-            throw std::runtime_error("Invalid call to GetOrCreateProcessor in non-overload mode");
+            //throw std::runtime_error("Invalid call to GetOrCreateProcessor in non-overload mode");
+            static_assert(false);
         }
     }
 
@@ -1179,13 +1211,13 @@ private:
         if (it->second->GetArgTypes() != expectedArgTypes || 
             it->second->GetArgCount() != expectedArgCount)
         {
-            throw std::runtime_error("Action parameter type mismatch for key in non-overload mode");
+            return nullptr;  // 类型不匹配，返回空指针
         }
 
         auto* existing = static_cast<ActionProcessorWrapper<Args...>*>(it->second.get());
         if (!existing)
         {
-            throw std::runtime_error("Action parameter type mismatch for key");
+            return nullptr;  // 转换失败，返回空指针
         }
 
         return existing;
