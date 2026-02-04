@@ -49,31 +49,33 @@ public:
         return false;
     }
 
-    void Undo()
+    bool Undo()
     {
-        if (m_UndoStack.empty()) return;
+        if (m_UndoStack.empty()) return false;
         bIsUndoRedo = true;
         auto& command = m_UndoStack.back();
 
-        command->Undo();
+        bool success = command->Undo();
 
         // 移动到重做栈
         m_RedoStack.push_back(std::move(command));
         m_UndoStack.pop_back();
         bIsUndoRedo = false;
+        return success;
     }
 
-    void Redo()
+    bool Redo()
     {
-        if (m_RedoStack.empty()) return;
+        if (m_RedoStack.empty()) return false;
         bIsUndoRedo = true;
         auto& command = m_RedoStack.back();
-        command->Execute();
+        bool success = command->Execute();
 
         // 移回撤销栈
         m_UndoStack.push_back(std::move(command));
         m_RedoStack.pop_back();
         bIsUndoRedo = false;
+        return success;
     }
 
     void Clear()
