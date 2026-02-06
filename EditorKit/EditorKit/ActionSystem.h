@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include <functional>
 #include <memory>
@@ -15,24 +15,24 @@
 #include "Type_Check.h"
 
 /*
-*   £¡£¡£¡×¢Òâ£¡£¡£¡
-*   Ê¹ÓÃÖµÀàĞÍ×÷Îª¶©ÔÄ²ÎÊıÊ±£¬»áÔÚ±»µ÷ÓÃÊ±´¥·¢ÒÆ¶¯ÓïÒå£¨Èç¹ûÓĞÒÆ¶¯ÓïÒå£©£¬µ¼ÖÂÖ»ÓĞµÚÒ»¸ö¶©ÔÄ´¥·¢µÃµ½×ÊÔ´¡£¸´ÔÓ¶ÔÏó¾¡Á¿Ê¹ÓÃÒıÓÃ¡£
-*   
+*   ï¼ï¼ï¼æ³¨æ„ï¼ï¼ï¼
+*   ä½¿ç”¨å€¼ç±»å‹ä½œä¸ºè®¢é˜…å‚æ•°æ—¶ï¼Œä¼šåœ¨è¢«è°ƒç”¨æ—¶è§¦å‘ç§»åŠ¨è¯­ä¹‰ï¼ˆå¦‚æœæœ‰ç§»åŠ¨è¯­ä¹‰ï¼‰ï¼Œå¯¼è‡´åªæœ‰ç¬¬ä¸€ä¸ªè®¢é˜…è§¦å‘å¾—åˆ°èµ„æºã€‚å¤æ‚å¯¹è±¡å°½é‡ä½¿ç”¨å¼•ç”¨ã€‚
+*
 */
 
 
-// ActionÀàĞÍ
+// Actionç±»å‹
 enum class ActionHandlerType
 {
-    TriggerListener,     // ´¥·¢Æ÷¼àÌıÆ÷
-    Validator,          // ÑéÖ¤Æ÷
-    ValidationListener, // ÑéÖ¤¼àÌıÆ÷
-    SequentialProcessor, // Ë³Ğò´¦ÀíÆ÷
-    FinalProcessor,     // ×îÖÕ´¦ÀíÆ÷
-    CompletionListener   // Íê³É¼àÌıÆ÷
+    TriggerListener,     // è§¦å‘å™¨ç›‘å¬å™¨
+    Validator,          // éªŒè¯å™¨
+    ValidationListener, // éªŒè¯ç›‘å¬å™¨
+    SequentialProcessor, // é¡ºåºå¤„ç†å™¨
+    FinalProcessor,     // æœ€ç»ˆå¤„ç†å™¨
+    CompletionListener   // å®Œæˆç›‘å¬å™¨
 };
 
-// Action¾ä±ú
+// Actionå¥æŸ„ - è®¢é˜…å¥æŸ„ï¼Œç”¨äºç®¡ç†å·²æ³¨å†Œçš„å¤„ç†å™¨
 template<typename KeyType>
 class ActionHandle
 {
@@ -75,18 +75,22 @@ public:
     };
 };
 
-// Ö´ĞĞ½á¹û
+// ActionInvoker - å‰å‘å£°æ˜ï¼ˆå®é™…å®šä¹‰åœ¨ ActionResult ä¹‹åï¼‰
+template<typename KeyType, typename... Args>
+class ActionInvoker;
+
+// æ‰§è¡Œç»“æœ
 struct ActionResult
 {
-    bool success;                    // ÊÇ·ñ³É¹¦Ö´ĞĞ
-    bool validationPassed;          // ÑéÖ¤ÊÇ·ñÍ¨¹ı
-    std::string errorMessage;       // ´íÎóĞÅÏ¢
-    size_t totalValidators;         // ÑéÖ¤Æ÷×ÜÊı
-    size_t passedValidators;        // Í¨¹ıÑéÖ¤Æ÷Êı
-    size_t totalProcessors;         // ´¦ÀíÆ÷×ÜÊı
-    size_t executedProcessors;      // ÒÑÖ´ĞĞ´¦ÀíÆ÷Êı
-    size_t totalListeners;          // ¼àÌıÆ÷×ÜÊı
-    size_t executedListeners;       // ÒÑÖ´ĞĞ¼àÌıÆ÷Êı
+    bool success;                    // æ˜¯å¦æˆåŠŸæ‰§è¡Œ
+    bool validationPassed;          // éªŒè¯æ˜¯å¦é€šè¿‡
+    std::string errorMessage;       // é”™è¯¯ä¿¡æ¯
+    size_t totalValidators;         // éªŒè¯å™¨æ€»æ•°
+    size_t passedValidators;        // é€šè¿‡éªŒè¯å™¨æ•°
+    size_t totalProcessors;         // å¤„ç†å™¨æ€»æ•°
+    size_t executedProcessors;      // å·²æ‰§è¡Œå¤„ç†å™¨æ•°
+    size_t totalListeners;          // ç›‘å¬å™¨æ€»æ•°
+    size_t executedListeners;       // å·²æ‰§è¡Œç›‘å¬å™¨æ•°
 
     ActionResult()
         : success(false), validationPassed(false), totalValidators(0),
@@ -112,14 +116,92 @@ struct ActionResult
     }
 };
 
-// Action´¦ÀíÆ÷»ùÀà
+// ActionInvoker - åŠ¨ä½œè°ƒç”¨å™¨ï¼Œç”¨äºé«˜æ•ˆæ‰§è¡ŒåŠ¨ä½œï¼ˆé¿å…å“ˆå¸ŒæŸ¥æ‰¾ï¼‰
+// æ­¤ç±»æä¾›ç›´æ¥æ‰§è¡Œè·¯å¾„ï¼Œæ— éœ€æ¯æ¬¡æ‰§è¡Œæ—¶è¿›è¡Œå“ˆå¸ŒæŸ¥æ‰¾
+template<typename KeyType, typename... Args>
+class ActionInvoker
+{
+private:
+    // ç±»å‹æ“¦é™¤æ‰§è¡Œæ¥å£
+    struct IInvokerImpl
+    {
+        virtual ~IInvokerImpl() = default;
+        virtual ActionResult Execute(void* args[]) = 0;
+    };
+
+    template<typename ProcessorType>
+    class InvokerImpl : public IInvokerImpl
+    {
+    private:
+        ProcessorType* processor_;
+
+    public:
+        InvokerImpl(ProcessorType* processor) : processor_(processor) {}
+
+        ActionResult Execute(void* args[]) override
+        {
+            return processor_->ExecuteWithForward(args);
+        }
+    };
+
+    std::shared_ptr<IInvokerImpl> impl_;
+    KeyType actionKey_;
+
+    // å…è®¸ ActionSystem æ„é€  ActionInvoker
+    template<typename KT, bool AO, typename H, typename KE>
+    friend class ActionSystem;
+
+    // ç§æœ‰æ„é€ å‡½æ•°ï¼Œä¾› ActionSystem ä½¿ç”¨
+    ActionInvoker(std::shared_ptr<IInvokerImpl> impl, const KeyType& actionKey)
+        : impl_(std::move(impl)), actionKey_(actionKey)
+    {
+    }
+
+public:
+    ActionInvoker() = default;
+
+    bool isValid() const { return impl_ != nullptr; }
+    operator bool() const noexcept { return isValid(); }
+
+    const KeyType& GetActionKey() const { return actionKey_; }
+
+    // ç›´æ¥æ‰§è¡ŒåŠ¨ä½œï¼ˆæ— å“ˆå¸ŒæŸ¥æ‰¾ï¼‰
+    ActionResult Execute(Args&&... args)
+    {
+        if (!impl_)
+        {
+            ActionResult result;
+            result.errorMessage = "Invalid invoker: null implementation";
+            return result;
+        }
+
+        // å‡†å¤‡å‚æ•°æŒ‡é’ˆæ•°ç»„ï¼ˆæ”¯æŒå®Œç¾è½¬å‘ï¼‰
+        void* argPointers[sizeof...(Args) + 1] = {};
+
+        // å‡†å¤‡å‚æ•°æŒ‡é’ˆ
+        PrepareArgPointers(argPointers, std::tie(args...), std::index_sequence_for<Args...>{});
+
+        // æ‰§è¡ŒåŠ¨ä½œ
+        return impl_->Execute(argPointers);
+    }
+
+private:
+    // å‡†å¤‡å‚æ•°æŒ‡é’ˆçš„è¾…åŠ©å‡½æ•°
+    template<typename Tuple, size_t... Is>
+    void PrepareArgPointers(void* pointers[], Tuple&& tuple, std::index_sequence<Is...>)
+    {
+        ((pointers[Is] = (void*)(&std::get<Is>(tuple))), ...);
+    }
+};
+
+// Actionå¤„ç†å™¨åŸºç±»
 template<typename KeyType>
 class IActionHandler
 {
 protected:
     ActionHandle<KeyType> handle_;
     std::string description_;
-    int priority_;  // Ö´ĞĞÓÅÏÈ¼¶£¬ÖµÔ½Ğ¡ÓÅÏÈ¼¶Ô½¸ß
+    int priority_;  // æ‰§è¡Œä¼˜å…ˆçº§ï¼Œå€¼è¶Šå°ä¼˜å…ˆçº§è¶Šé«˜
 
 public:
     IActionHandler(const ActionHandle<KeyType>& handle, const std::string& description, int priority = 0)
@@ -137,7 +219,7 @@ public:
     virtual size_t GetArgCount() const = 0;
 };
 
-// ÑéÖ¤Æ÷´¦ÀíÆ÷
+// éªŒè¯å™¨å¤„ç†å™¨
 template<typename KeyType, typename... Args>
 class ValidatorHandler : public IActionHandler<KeyType>
 {
@@ -148,7 +230,7 @@ public:
         const std::string& description, int priority = 0)
         : IActionHandler<KeyType>(handle, description, priority), validator_(std::move(validator))
     {
-        
+
     }
 
     bool Validate(Args&&... args) const
@@ -175,7 +257,7 @@ private:
     ValidatorFunc validator_;
 };
 
-// ´¦ÀíÆ÷»ùÀà£¬ÓÃÓÚË³Ğò´¦ÀíÆ÷¡¢×îÖÕ´¦ÀíÆ÷ºÍ¼àÌıÆ÷
+// å¤„ç†å™¨åŸºç±»ï¼Œç”¨äºé¡ºåºå¤„ç†å™¨ã€æœ€ç»ˆå¤„ç†å™¨å’Œç›‘å¬å™¨
 template<typename KeyType, typename... Args>
 class ProcessorHandler : public IActionHandler<KeyType>
 {
@@ -187,7 +269,7 @@ public:
         : IActionHandler<KeyType>(handle, description, priority),
         processor_(std::move(processor)), type_(type)
     {
-        
+
     }
 
     void Process(Args&&... args) const
@@ -216,7 +298,7 @@ private:
     ActionHandlerType type_;
 };
 
-// Action´¦ÀíÆ÷ÈİÆ÷
+// Actionå¤„ç†å™¨å®¹å™¨
 template<typename KeyType, typename... Args>
 class ActionProcessorContainer
 {
@@ -229,7 +311,7 @@ private:
     std::vector<std::unique_ptr<ProcessorHandler<KeyType, Args...>>> completionListeners_;
 
 public:
-    // Ìí¼Ó´¦ÀíÆ÷
+    // æ·»åŠ å¤„ç†å™¨
     void AddValidator(std::unique_ptr<ValidatorHandler<KeyType, Args...>> validator)
     {
         validators_.push_back(std::move(validator));
@@ -265,7 +347,7 @@ public:
         SortByPriority(completionListeners_);
     }
 
-    // ÒÆ³ı´¦ÀíÆ÷
+    // ç§»é™¤å¤„ç†å™¨
     bool RemoveHandler(const ActionHandle<KeyType>& handle)
     {
         auto removeFromVector = [&handle](auto& vector) -> bool
@@ -281,7 +363,7 @@ public:
             return false;
         };
 
-        // ¼ì²é²¢ÒÆ³ı×îÖÕ´¦ÀíÆ÷
+        // æ£€æŸ¥å¹¶ç§»é™¤æœ€ç»ˆå¤„ç†å™¨
         if (finalProcessor_ && finalProcessor_->GetHandle() == handle)
         {
             finalProcessor_.reset();
@@ -295,12 +377,12 @@ public:
             removeFromVector(completionListeners_);
     }
 
-    // Ö´ĞĞÁ÷³Ì
+    // æ‰§è¡Œæµç¨‹
     ActionResult Execute(Args&&... args)
     {
         ActionResult result;
 
-        // ½×¶Î1: ´¥·¢¼àÌıÆ÷£¨Ê¹ÓÃÍêÃÀ×ª·¢£©
+        // é˜¶æ®µ1: è§¦å‘ç›‘å¬å™¨ï¼ˆä½¿ç”¨å®Œç¾è½¬å‘ï¼‰
         result.totalListeners += triggerListeners_.size();
         for (const auto& listener : triggerListeners_)
         {
@@ -315,7 +397,7 @@ public:
             }
         }
 
-        // ½×¶Î2: ÑéÖ¤Æ÷£¨Ê¹ÓÃÍêÃÀ×ª·¢£©
+        // é˜¶æ®µ2: éªŒè¯å™¨ï¼ˆä½¿ç”¨å®Œç¾è½¬å‘ï¼‰
         result.totalValidators = validators_.size();
         for (const auto& validator : validators_)
         {
@@ -341,13 +423,13 @@ public:
         }
         result.validationPassed = (result.totalValidators == 0) || (result.passedValidators == result.totalValidators);
 
-        // ÑéÖ¤Ê§°ÜÌáÇ°·µ»Ø
+        // éªŒè¯å¤±è´¥æå‰è¿”å›
         if (!result.validationPassed && result.totalValidators > 0)
         {
             return result;
         }
 
-        // ½×¶Î3: ÑéÖ¤Í¨¹ı¼àÌıÆ÷
+        // é˜¶æ®µ3: éªŒè¯é€šè¿‡ç›‘å¬å™¨
         result.totalListeners += validationListeners_.size();
         for (const auto& listener : validationListeners_)
         {
@@ -362,7 +444,7 @@ public:
             }
         }
 
-        // ½×¶Î4: Ë³Ğò´¦ÀíÆ÷
+        // é˜¶æ®µ4: é¡ºåºå¤„ç†å™¨
         result.totalProcessors = sequentialProcessors_.size();
         for (const auto& processor : sequentialProcessors_)
         {
@@ -379,7 +461,7 @@ public:
             }
         }
 
-        // ½×¶Î5: ×îÖÕ´¦ÀíÆ÷
+        // é˜¶æ®µ5: æœ€ç»ˆå¤„ç†å™¨
         if (finalProcessor_)
         {
             try
@@ -396,7 +478,7 @@ public:
             }
         }
 
-        // ½×¶Î6: Íê³É¼àÌıÆ÷
+        // é˜¶æ®µ6: å®Œæˆç›‘å¬å™¨
         result.totalListeners += completionListeners_.size();
         for (const auto& listener : completionListeners_)
         {
@@ -415,7 +497,7 @@ public:
         return result;
     }
 
-    // »ñÈ¡Í³¼ÆĞÅÏ¢
+    // è·å–ç»Ÿè®¡ä¿¡æ¯
     size_t GetTotalHandlers() const
     {
         return validators_.size() + sequentialProcessors_.size() +
@@ -423,7 +505,7 @@ public:
             validationListeners_.size() + completionListeners_.size();
     }
 
-    // »ñÈ¡´¦ÀíÆ÷ÊıÁ¿
+    // è·å–å¤„ç†å™¨æ•°é‡
     size_t GetValidatorCount() const { return validators_.size(); }
     size_t GetSequentialProcessorCount() const { return sequentialProcessors_.size(); }
     size_t GetTriggerListenerCount() const { return triggerListeners_.size(); }
@@ -432,7 +514,7 @@ public:
     bool HasFinalProcessor() const { return finalProcessor_ != nullptr; }
 
 private:
-    // °´ÓÅÏÈ¼¶ÅÅĞò
+    // æŒ‰ä¼˜å…ˆçº§æ’åº
     template<typename T>
     void SortByPriority(std::vector<std::unique_ptr<T>>& handlers)
     {
@@ -444,13 +526,13 @@ private:
     }
 };
 
-/* ActionÏµÍ³Ö÷Àà
-*Ä£°å²ÎÊı[0]KeyType-Action¼üÖµÀàĞÍ
-*Ä£°å²ÎÊı[1]AllowOverload-ÊÇ·ñÔÊĞíÊÂ¼şÖØÔØ£¬ÈôÎªtrue,Í¬Ò»¼üÖµµÄÊÂ¼ş¿ÉÒÔÓĞ²»Í¬µÄ²ÎÊıÁĞ±í£¬executeÊ±»á×Ô¶¯Ö´ĞĞÆ¥ÅäµÄÊÂ¼ş;
-*ÈôÎªfalse,ÔÚÌí¼Ó´¦ÀíÆ÷Ê±£¬ÒÔµÚÒ»¸öÌí¼ÓµÄ´¦ÀíÆ÷²ÎÊıÁĞ±íÎªÊÂ¼ş²ÎÊıÁĞ±í£¬ºóĞøÌí¼Ó´¦ÀíÆ÷Èô²ÎÊı²»Í¬£¬½«Ìí¼ÓÊ§°Ü;
-*£¨×¢Òâ£ºÄ¿Ç°ÒıÓÃÎŞ·¨¹¹³ÉÖØÔØ-Ïê¼û²âÊÔ¹¤³Ì£ºActionSystenTest.cpp - SECTION("ÒıÓÃÀàĞÍºÍÖµÀàĞÍµÄÖØÔØ")£©
-*Ä£°å²ÎÊı[2]Hash-¼üÖµÀàĞÍµÄ¹şÏ£º¯Êı
-*Ä£°å²ÎÊı[3]KeyEqual-¼üÖµÀàĞÍÅĞµÈº¯Êı
+/* Actionç³»ç»Ÿä¸»ç±»
+*æ¨¡æ¿å‚æ•°[0]KeyType-Actioné”®å€¼ç±»å‹
+*æ¨¡æ¿å‚æ•°[1]AllowOverload-æ˜¯å¦å…è®¸äº‹ä»¶é‡è½½ï¼Œè‹¥ä¸ºtrue,åŒä¸€é”®å€¼çš„äº‹ä»¶å¯ä»¥æœ‰ä¸åŒçš„å‚æ•°åˆ—è¡¨ï¼Œexecuteæ—¶ä¼šè‡ªåŠ¨æ‰§è¡ŒåŒ¹é…çš„äº‹ä»¶;
+*è‹¥ä¸ºfalse,åœ¨æ·»åŠ å¤„ç†å™¨æ—¶ï¼Œä»¥ç¬¬ä¸€ä¸ªæ·»åŠ çš„å¤„ç†å™¨å‚æ•°åˆ—è¡¨ä¸ºäº‹ä»¶å‚æ•°åˆ—è¡¨ï¼Œåç»­æ·»åŠ å¤„ç†å™¨è‹¥å‚æ•°ä¸åŒï¼Œå°†æ·»åŠ å¤±è´¥;
+*ï¼ˆæ³¨æ„ï¼šç›®å‰å¼•ç”¨æ— æ³•æ„æˆé‡è½½-è¯¦è§æµ‹è¯•å·¥ç¨‹ï¼šActionSystenTest.cpp - SECTION("å¼•ç”¨ç±»å‹å’Œå€¼ç±»å‹çš„é‡è½½")ï¼‰
+*æ¨¡æ¿å‚æ•°[2]Hash-é”®å€¼ç±»å‹çš„å“ˆå¸Œå‡½æ•°
+*æ¨¡æ¿å‚æ•°[3]KeyEqual-é”®å€¼ç±»å‹åˆ¤ç­‰å‡½æ•°
 */
 template<typename KeyType, bool AllowOverload = false, typename Hash = std::hash<KeyType>, typename KeyEqual = std::equal_to<KeyType>>
 class ActionSystem
@@ -458,7 +540,7 @@ class ActionSystem
 private:
     uint64_t nextHandleId_ = 1;
 
-    // ÀàĞÍ²Á³ıµÄ´¦ÀíÆ÷°ü×°Æ÷
+    // ç±»å‹æ“¦é™¤çš„å¤„ç†å™¨åŒ…è£…å™¨
     class IActionProcessorWrapper
     {
     public:
@@ -468,9 +550,9 @@ private:
         virtual size_t GetArgCount() const = 0;
         virtual size_t GetTotalHandlers() const = 0;
         virtual std::string GetStatistics() const = 0;
-        // ĞÂÔö£º×Ö½ÚÂëÖ´ĞĞ½Ó¿Ú£¨Ö§³ÖÍêÃÀ×ª·¢£©
+        // æ–°å¢ï¼šå­—èŠ‚ç æ‰§è¡Œæ¥å£ï¼ˆæ”¯æŒå®Œç¾è½¬å‘ï¼‰
         virtual ActionResult ExecuteWithForward(void* args[]) = 0;
-        // ĞÂÔö£º¼ì²é²ÎÊıÊÇ·ñÆ¥Åä
+        // æ–°å¢ï¼šæ£€æŸ¥å‚æ•°æ˜¯å¦åŒ¹é…
         virtual bool CheckArgsMatch(const std::string& argTypes, size_t argCount) const = 0;
     };
 
@@ -479,8 +561,8 @@ private:
     {
     private:
         ActionProcessorContainer<KeyType, Args...> container_;
-        
-        // ÀàĞÍ¼ì²é¸¨Öú·½·¨
+
+        // ç±»å‹æ£€æŸ¥è¾…åŠ©æ–¹æ³•
         template<typename T, typename... Rest>
         bool CheckArgTypes(void* args[]) const
         {
@@ -502,11 +584,11 @@ private:
             return arg != nullptr;
         }
 
-        // ´ø²ÎÊıÖ´ĞĞµÄÊµÏÖ
+        // å¸¦å‚æ•°æ‰§è¡Œçš„å®ç°
         template<size_t... Is>
         ActionResult ExecuteWithArgs(void* args[], std::index_sequence<Is...>)
         {
-            // ÀàĞÍ°²È«¼ì²é
+            // ç±»å‹å®‰å…¨æ£€æŸ¥
             if (!CheckArgTypes<Args...>(args))
             {
                 ActionResult result;
@@ -514,21 +596,21 @@ private:
                 return result;
             }
 
-            // Ê¹ÓÃÍêÃÀ×ª·¢Ö´ĞĞ
+            // ä½¿ç”¨å®Œç¾è½¬å‘æ‰§è¡Œ
             return container_.Execute(
                 std::forward<Args>(
                     *static_cast<std::remove_reference_t<Args>*>(args[Is])
                     )...
             );
         }
-        
+
     public:
         ActionResult Execute(Args... args)
         {
             return container_.Execute(std::forward<Args>(args)...);
         }
 
-        // ÊµÏÖ×Ö½ÚÂëÖ´ĞĞ½Ó¿Ú
+        // å®ç°å­—èŠ‚ç æ‰§è¡Œæ¥å£
         ActionResult ExecuteWithForward(void* args[]) override
         {
             if constexpr (sizeof...(Args) == 0)
@@ -541,7 +623,7 @@ private:
             }
         }
 
-        // ¼ì²é²ÎÊıÊÇ·ñÆ¥Åä
+        // æ£€æŸ¥å‚æ•°æ˜¯å¦åŒ¹é…
         bool CheckArgsMatch(const std::string& argTypes, size_t argCount) const override
         {
             return (GetArgTypes() == argTypes) && (GetArgCount() == argCount);
@@ -631,7 +713,7 @@ private:
         }
     };
 
-    // ¸ù¾İ²»Í¬Ä£Ê½Ñ¡Ôñ´æ´¢½á¹¹
+    // æ ¹æ®ä¸åŒæ¨¡å¼é€‰æ‹©å­˜å‚¨ç»“æ„
     using ActionStorage = typename std::conditional<
         AllowOverload,
         std::unordered_map<KeyType, std::vector<std::unique_ptr<IActionProcessorWrapper>>, Hash, KeyEqual>,
@@ -641,7 +723,7 @@ private:
     ActionStorage actions_;
     std::unordered_map<ActionHandle<KeyType>, KeyType, typename ActionHandle<KeyType>::Hash> handleToActionMap_;
 
-    // ĞÂÔö£ºÈ«¾Ö¶¯×÷¼àÌıÆ÷ÈİÆ÷
+    // æ–°å¢ï¼šå…¨å±€åŠ¨ä½œç›‘å¬å™¨å®¹å™¨
     using GlobalCompletionListener = std::function<void(const KeyType&, const ActionResult&)>;
     struct GlobalListenerInfo
     {
@@ -653,7 +735,7 @@ private:
     std::vector<GlobalListenerInfo> globalCompletionListeners_;
     uint64_t nextGlobalListenerId_ = 1;
 
-    // ĞÂÔö£ºÍ¨ÖªÈ«¾Ö¼àÌıÆ÷µÄ¸¨Öú·½·¨
+    // æ–°å¢ï¼šé€šçŸ¥å…¨å±€ç›‘å¬å™¨çš„è¾…åŠ©æ–¹æ³•
     void NotifyGlobalListeners(const KeyType& actionKey, const ActionResult& result)
     {
         for (const auto& listenerInfo : globalCompletionListeners_)
@@ -664,20 +746,20 @@ private:
             }
             catch (const std::exception& e)
             {
-                // È«¾Ö¼àÌıÆ÷µÄÒì³£²»Ó¦¸ÃÓ°ÏìÖ÷Á÷³Ì£¬Ö»¼ÇÂ¼µ½´íÎóÁ÷
+                // å…¨å±€ç›‘å¬å™¨çš„å¼‚å¸¸ä¸åº”è¯¥å½±å“ä¸»æµç¨‹ï¼Œåªè®°å½•åˆ°é”™è¯¯æµ
                 std::cerr << "Global completion listener error: " << e.what() << std::endl;
             }
         }
     }
 
-    // ÄÚ²¿ÊµÏÖ·½·¨£¬Ö§³Ölambda
+    // å†…éƒ¨å®ç°æ–¹æ³•ï¼Œæ”¯æŒlambda
     template<typename Callable>
     ActionHandle<KeyType> AddHandlerImpl(const KeyType& actionKey, Callable&& handler,
         ActionHandlerType type, const std::string& description, int priority)
     {
         using traits = function_traits<std::decay_t<Callable>>;
 
-        // ¸ù¾İ²ÎÊıÊıÁ¿·ÖÅÉµ½¾ßÌåÊµÏÖ
+        // æ ¹æ®å‚æ•°æ•°é‡åˆ†æ´¾åˆ°å…·ä½“å®ç°
         if constexpr (traits::arity == 0)
         {
             return AddHandlerDetailed<>(actionKey,
@@ -846,12 +928,12 @@ private:
         }
         else
         {
-            static_assert(traits::arity <= 9, "×î¶àÖ§³Ö9¸ö²ÎÊı");
+            static_assert(traits::arity <= 9, "æœ€å¤šæ”¯æŒ9ä¸ªå‚æ•°");
             return ActionHandle<KeyType>();
         }
     }
 
-    // ÏêÏ¸µÄÌí¼Ó´¦ÀíÆ÷ÊµÏÖ
+    // è¯¦ç»†çš„æ·»åŠ å¤„ç†å™¨å®ç°
     template<typename... Args>
     ActionHandle<KeyType> AddHandlerDetailed(const KeyType& actionKey,
         std::function<void(Args...)> handler,
@@ -861,11 +943,11 @@ private:
     {
         if constexpr (AllowOverload)
         {
-            // ÔÊĞíÖØÔØÄ£Ê½£ºÖ±½Ó´´½¨»ò»ñÈ¡¶ÔÓ¦ÀàĞÍµÄ´¦ÀíÆ÷°ü×°Æ÷
+            // å…è®¸é‡è½½æ¨¡å¼ï¼šç›´æ¥åˆ›å»ºæˆ–è·å–å¯¹åº”ç±»å‹çš„å¤„ç†å™¨åŒ…è£…å™¨
             auto* processor = GetOrCreateProcessor<Args...>(actionKey);
             if (!processor)
             {
-                // ´´½¨´¦ÀíÆ÷Ê§°Ü£¬·µ»ØÎŞĞ§handle
+                // åˆ›å»ºå¤„ç†å™¨å¤±è´¥ï¼Œè¿”å›æ— æ•ˆhandle
                 return ActionHandle<KeyType>();
             }
 
@@ -876,11 +958,11 @@ private:
         }
         else
         {
-            // ²»ÔÊĞíÖØÔØÄ£Ê½£ºĞèÒª¼ì²é²ÎÊıÀàĞÍÊÇ·ñÆ¥Åä
+            // ä¸å…è®¸é‡è½½æ¨¡å¼ï¼šéœ€è¦æ£€æŸ¥å‚æ•°ç±»å‹æ˜¯å¦åŒ¹é…
             auto* processor = GetOrCreateProcessorWithCheck<Args...>(actionKey);
             if (!processor)
             {
-                // ²ÎÊıÀàĞÍ²»Æ¥Åä»ò»ñÈ¡´¦ÀíÆ÷Ê§°Ü£¬·µ»ØÎŞĞ§handle
+                // å‚æ•°ç±»å‹ä¸åŒ¹é…æˆ–è·å–å¤„ç†å™¨å¤±è´¥ï¼Œè¿”å›æ— æ•ˆhandle
                 return ActionHandle<KeyType>();
             }
 
@@ -891,7 +973,7 @@ private:
         }
     }
 
-    // Ìí¼Ó´¦ÀíÆ÷µ½°ü×°Æ÷µÄ¸¨Öúº¯Êı
+    // æ·»åŠ å¤„ç†å™¨åˆ°åŒ…è£…å™¨çš„è¾…åŠ©å‡½æ•°
     template<typename... Args>
     void AddHandlerToProcessor(ActionProcessorWrapper<Args...>* processor,
         const ActionHandle<KeyType>& handle,
@@ -903,8 +985,8 @@ private:
         switch (type)
         {
         case ActionHandlerType::Validator:
-            // ÑéÖ¤Æ÷ĞèÒªÌØÊâµÄ´¦Àí£¬ÒòÎªÇ©ÃûÓ¦¸ÃÊÇbool(Args...)
-            // ÕâÀïĞèÒª½«void(Args...)×ª»»Îªbool(Args...)
+            // éªŒè¯å™¨éœ€è¦ç‰¹æ®Šçš„å¤„ç†ï¼Œå› ä¸ºç­¾ååº”è¯¥æ˜¯bool(Args...)
+            // è¿™é‡Œéœ€è¦å°†void(Args...)è½¬æ¢ä¸ºbool(Args...)
             processor->AddValidator(handle,
                 [handler = std::move(handler)](Args... args) -> bool {
                 handler(args...);
@@ -928,16 +1010,16 @@ private:
         }
     }
 
-    // ÑéÖ¤Æ÷µÄÌØÊâ´¦Àí£¨·µ»Øbool£©
+    // éªŒè¯å™¨çš„ç‰¹æ®Šå¤„ç†ï¼ˆè¿”å›boolï¼‰
     template<typename Callable>
     ActionHandle<KeyType> AddValidatorImpl(const KeyType& actionKey, Callable&& validator,
         const std::string& description, int priority)
     {
         using traits = function_traits<std::decay_t<Callable>>;
         static_assert(std::is_same_v<typename traits::return_type, bool>,
-            "Validator must return bool type  ÑéÖ¤Æ÷±ØĞë·µ»ØboolÀàĞÍ");
+            "Validator must return bool type  éªŒè¯å™¨å¿…é¡»è¿”å›boolç±»å‹");
 
-        // ¸ù¾İ²ÎÊıÊıÁ¿·ÖÅÉ
+        // æ ¹æ®å‚æ•°æ•°é‡åˆ†æ´¾
         if constexpr (traits::arity == 0)
         {
             return AddValidatorDetailed<>(actionKey,
@@ -1091,7 +1173,7 @@ private:
                 typename traits::template arg_type<7>,
                 typename traits::template arg_type<8>>(
                     actionKey,
-                    std::function<bool(
+                    std::function<bool>(
                         typename traits::template arg_type<0>,
                         typename traits::template arg_type<1>,
                         typename traits::template arg_type<2>,
@@ -1106,7 +1188,7 @@ private:
         }
         else
         {
-            static_assert(traits::arity <= 9, "Ö»Ö§³Ö×î¶à9¸ö²ÎÊı");
+            static_assert(traits::arity <= 9, "åªæ”¯æŒæœ€å¤š9ä¸ªå‚æ•°");
             return ActionHandle<KeyType>();
         }
     }
@@ -1119,11 +1201,11 @@ private:
     {
         if constexpr (AllowOverload)
         {
-            // ÔÊĞíÖØÔØÄ£Ê½
+            // å…è®¸é‡è½½æ¨¡å¼
             auto* processor = GetOrCreateProcessor<Args...>(actionKey);
             if (!processor)
             {
-                // ´´½¨´¦ÀíÆ÷Ê§°Ü£¬·µ»ØÎŞĞ§handle
+                // åˆ›å»ºå¤„ç†å™¨å¤±è´¥ï¼Œè¿”å›æ— æ•ˆhandle
                 return ActionHandle<KeyType>();
             }
 
@@ -1134,11 +1216,11 @@ private:
         }
         else
         {
-            // ²»ÔÊĞíÖØÔØÄ£Ê½
+            // ä¸å…è®¸é‡è½½æ¨¡å¼
             auto* processor = GetOrCreateProcessorWithCheck<Args...>(actionKey);
             if (!processor)
             {
-                // ²ÎÊıÀàĞÍ²»Æ¥Åä»ò»ñÈ¡´¦ÀíÆ÷Ê§°Ü£¬·µ»ØÎŞĞ§handle
+                // å‚æ•°ç±»å‹ä¸åŒ¹é…æˆ–è·å–å¤„ç†å™¨å¤±è´¥ï¼Œè¿”å›æ— æ•ˆhandle
                 return ActionHandle<KeyType>();
             }
 
@@ -1149,19 +1231,19 @@ private:
         }
     }
 
-    // ÔÊĞíÖØÔØÄ£Ê½ÏÂµÄ´¦ÀíÆ÷»ñÈ¡/´´½¨
+    // å…è®¸é‡è½½æ¨¡å¼ä¸‹çš„å¤„ç†å™¨è·å–/åˆ›å»º
     template<typename... Args>
     ActionProcessorWrapper<Args...>* GetOrCreateProcessor(const KeyType& actionKey)
     {
         if constexpr (AllowOverload)
         {
-            // ÔÊĞíÖØÔØ£º²éÕÒ»ò´´½¨¶ÔÓ¦²ÎÊıÀàĞÍµÄ°ü×°Æ÷
+            // å…è®¸é‡è½½ï¼šæŸ¥æ‰¾æˆ–åˆ›å»ºå¯¹åº”å‚æ•°ç±»å‹çš„åŒ…è£…å™¨
             std::string argTypes = type_check::get_template_args_info<Args...>();
             size_t argCount = sizeof...(Args);
-            
+
             auto& wrappers = actions_[actionKey];
-            
-            // ²éÕÒÊÇ·ñÒÑ´æÔÚÏàÍ¬²ÎÊıÀàĞÍµÄ°ü×°Æ÷
+
+            // æŸ¥æ‰¾æ˜¯å¦å·²å­˜åœ¨ç›¸åŒå‚æ•°ç±»å‹çš„åŒ…è£…å™¨
             for (auto& wrapper : wrappers)
             {
                 if (wrapper->CheckArgsMatch(argTypes, argCount))
@@ -1173,8 +1255,8 @@ private:
                     }
                 }
             }
-            
-            // ²»´æÔÚÔò´´½¨ĞÂµÄ
+
+            // ä¸å­˜åœ¨åˆ™åˆ›å»ºæ–°çš„
             auto newWrapper = std::make_unique<ActionProcessorWrapper<Args...>>();
             auto* ptr = newWrapper.get();
             wrappers.push_back(std::move(newWrapper));
@@ -1182,54 +1264,54 @@ private:
         }
         else
         {
-            // ²»ÔÊĞíÖØÔØ£ºÊ¹ÓÃÔ­Âß¼­£¨µ«²»»áÖ´ĞĞµ½ÕâÀï£©
+            // ä¸å…è®¸é‡è½½ï¼šä½¿ç”¨åŸé€»è¾‘ï¼ˆä½†ä¸ä¼šæ‰§è¡Œåˆ°è¿™é‡Œï¼‰
             //throw std::runtime_error("Invalid call to GetOrCreateProcessor in non-overload mode");
             static_assert(false);
         }
     }
 
-    // ²»ÔÊĞíÖØÔØÄ£Ê½ÏÂµÄ´¦ÀíÆ÷»ñÈ¡/´´½¨£¨´øÀàĞÍ¼ì²é£©
+    // ä¸å…è®¸é‡è½½æ¨¡å¼ä¸‹çš„å¤„ç†å™¨è·å–/åˆ›å»ºï¼ˆå¸¦ç±»å‹æ£€æŸ¥ï¼‰
     template<typename... Args>
     ActionProcessorWrapper<Args...>* GetOrCreateProcessorWithCheck(const KeyType& actionKey)
     {
         static_assert(!AllowOverload, "This method should only be called in non-overload mode");
-        
+
         auto it = actions_.find(actionKey);
         if (it == actions_.end())
         {
-            // ²»´æÔÚ£¬´´½¨ĞÂµÄ
+            // ä¸å­˜åœ¨ï¼Œåˆ›å»ºæ–°çš„
             auto wrapper = std::make_unique<ActionProcessorWrapper<Args...>>();
             auto* ptr = wrapper.get();
             actions_[actionKey] = std::move(wrapper);
             return ptr;
         }
 
-        // ´æÔÚ£¬¼ì²éÀàĞÍÊÇ·ñÆ¥Åä
+        // å­˜åœ¨ï¼Œæ£€æŸ¥ç±»å‹æ˜¯å¦åŒ¹é…
         std::string expectedArgTypes = type_check::get_template_args_info<Args...>();
         size_t expectedArgCount = sizeof...(Args);
-        
-        if (it->second->GetArgTypes() != expectedArgTypes || 
+
+        if (it->second->GetArgTypes() != expectedArgTypes ||
             it->second->GetArgCount() != expectedArgCount)
         {
-            return nullptr;  // ÀàĞÍ²»Æ¥Åä£¬·µ»Ø¿ÕÖ¸Õë
+            return nullptr;  // ç±»å‹ä¸åŒ¹é…ï¼Œè¿”å›ç©ºæŒ‡é’ˆ
         }
 
         auto* existing = static_cast<ActionProcessorWrapper<Args...>*>(it->second.get());
         if (!existing)
         {
-            return nullptr;  // ×ª»»Ê§°Ü£¬·µ»Ø¿ÕÖ¸Õë
+            return nullptr;  // è½¬æ¢å¤±è´¥ï¼Œè¿”å›ç©ºæŒ‡é’ˆ
         }
 
         return existing;
     }
 
-    // ²éÕÒÆ¥ÅäµÄ´¦ÀíÆ÷£¨ÓÃÓÚÔÊĞíÖØÔØÄ£Ê½ÏÂµÄÖ´ĞĞ£©
+    // æŸ¥æ‰¾åŒ¹é…çš„å¤„ç†å™¨ï¼ˆç”¨äºå…è®¸é‡è½½æ¨¡å¼ä¸‹çš„æ‰§è¡Œï¼‰
     template<typename... Args>
     IActionProcessorWrapper* FindMatchingProcessor(const KeyType& actionKey)
     {
         if constexpr (!AllowOverload)
         {
-            // ²»ÔÊĞíÖØÔØ£ºÖ±½Ó²éÕÒ
+            // ä¸å…è®¸é‡è½½ï¼šç›´æ¥æŸ¥æ‰¾
             auto it = actions_.find(actionKey);
             if (it == actions_.end())
             {
@@ -1246,11 +1328,11 @@ private:
             {
                 return nullptr;
             }
-            
+
         }
         else
         {
-            // ÔÊĞíÖØÔØ£ºÔÚÏòÁ¿ÖĞ²éÕÒÆ¥ÅäµÄ´¦ÀíÆ÷
+            // å…è®¸é‡è½½ï¼šåœ¨å‘é‡ä¸­æŸ¥æ‰¾åŒ¹é…çš„å¤„ç†å™¨
             auto it = actions_.find(actionKey);
             if (it == actions_.end())
             {
@@ -1259,7 +1341,7 @@ private:
 
             std::string argTypes = type_check::get_template_args_info<Args...>();
             size_t argCount = sizeof...(Args);
-            
+
             for (auto& wrapper : it->second)
             {
                 if (wrapper->CheckArgsMatch(argTypes, argCount))
@@ -1267,15 +1349,15 @@ private:
                     return wrapper.get();
                 }
             }
-            
+
             return nullptr;
         }
     }
 
 public:
-    // ========== Ö§³Ölambda±í´ïÊ½µÄ¼ò»¯½Ó¿Ú ==========
+    // ========== æ”¯æŒlambdaè¡¨è¾¾å¼çš„ç®€åŒ–æ¥å£ ==========
 
-    // ÑéÖ¤Æ÷lambda°æ±¾
+    // éªŒè¯å™¨lambdaç‰ˆæœ¬
     template<typename Callable>
     ActionHandle<KeyType> AddValidator(const KeyType& actionKey, Callable&& validator,
         const std::string& description = "", int priority = 0)
@@ -1283,7 +1365,7 @@ public:
         return AddValidatorImpl(actionKey, std::forward<Callable>(validator), description, priority);
     }
 
-    // Ë³Ğò´¦ÀíÆ÷lambda°æ±¾
+    // é¡ºåºå¤„ç†å™¨lambdaç‰ˆæœ¬
     template<typename Callable>
     ActionHandle<KeyType> AddSequentialProcessor(const KeyType& actionKey, Callable&& processor,
         const std::string& description = "", int priority = 0)
@@ -1292,7 +1374,7 @@ public:
             ActionHandlerType::SequentialProcessor, description, priority);
     }
 
-    // ×îÖÕ´¦ÀíÆ÷lambda°æ±¾
+    // æœ€ç»ˆå¤„ç†å™¨lambdaç‰ˆæœ¬
     template<typename Callable>
     ActionHandle<KeyType> SetFinalProcessor(const KeyType& actionKey, Callable&& processor,
         const std::string& description = "", int priority = 0)
@@ -1301,7 +1383,7 @@ public:
             ActionHandlerType::FinalProcessor, description, priority);
     }
 
-    // ´¥·¢Æ÷¼àÌıÆ÷lambda°æ±¾
+    // è§¦å‘å™¨ç›‘å¬å™¨lambdaç‰ˆæœ¬
     template<typename Callable>
     ActionHandle<KeyType> AddTriggerListener(const KeyType& actionKey, Callable&& listener,
         const std::string& description = "", int priority = 0)
@@ -1310,7 +1392,7 @@ public:
             ActionHandlerType::TriggerListener, description, priority);
     }
 
-    // ÑéÖ¤Í¨¹ı¼àÌıÆ÷lambda°æ±¾
+    // éªŒè¯é€šè¿‡ç›‘å¬å™¨lambdaç‰ˆæœ¬
     template<typename Callable>
     ActionHandle<KeyType> AddValidationListener(const KeyType& actionKey, Callable&& listener,
         const std::string& description = "", int priority = 0)
@@ -1319,7 +1401,7 @@ public:
             ActionHandlerType::ValidationListener, description, priority);
     }
 
-    // Íê³É¼àÌıÆ÷lambda°æ±¾
+    // å®Œæˆç›‘å¬å™¨lambdaç‰ˆæœ¬
     template<typename Callable>
     ActionHandle<KeyType> AddCompletionListener(const KeyType& actionKey, Callable&& listener,
         const std::string& description = "", int priority = 0)
@@ -1328,9 +1410,9 @@ public:
             ActionHandlerType::CompletionListener, description, priority);
     }
 
-    // ========== ´«Í³µÄstd::function½Ó¿Ú ==========
+    // ========== ä¼ ç»Ÿçš„std::functionæ¥å£ ==========
 
-    // ÑéÖ¤Æ÷std::function°æ±¾
+    // éªŒè¯å™¨std::functionç‰ˆæœ¬
     template<typename... Args>
     ActionHandle<KeyType> AddValidator(const KeyType& actionKey,
         std::function<bool(Args...)> validator,
@@ -1354,7 +1436,7 @@ public:
         return handle;
     }
 
-    // Ë³Ğò´¦ÀíÆ÷std::function°æ±¾
+    // é¡ºåºå¤„ç†å™¨std::functionç‰ˆæœ¬
     template<typename... Args>
     ActionHandle<KeyType> AddSequentialProcessor(const KeyType& actionKey,
         std::function<void(Args...)> processor,
@@ -1378,7 +1460,7 @@ public:
         return handle;
     }
 
-    // ×îÖÕ´¦ÀíÆ÷std::function°æ±¾
+    // æœ€ç»ˆå¤„ç†å™¨std::functionç‰ˆæœ¬
     template<typename... Args>
     ActionHandle<KeyType> SetFinalProcessor(const KeyType& actionKey,
         std::function<void(Args...)> processor,
@@ -1402,7 +1484,7 @@ public:
         return handle;
     }
 
-    // ¼àÌıÆ÷std::function°æ±¾
+    // ç›‘å¬å™¨std::functionç‰ˆæœ¬
     template<typename... Args>
     ActionHandle<KeyType> AddListener(const KeyType& actionKey,
         std::function<void(Args...)> listener,
@@ -1427,7 +1509,65 @@ public:
         return handle;
     }
 
-    // Ìí¼ÓÈ«¾Ö¶¯×÷¼àÌıÆ÷
+    // ========== æ–°å¢ï¼šActionInvoker åŠŸèƒ½ ==========
+
+    // è·å–åŠ¨ä½œè°ƒç”¨å™¨ï¼ˆéœ€æ˜¾å¼æŒ‡å®šå‚æ•°ç±»å‹ï¼‰
+    // ç”¨äºé«˜æ•ˆæ‰§è¡Œï¼Œé¿å…æ¯æ¬¡æ‰§è¡Œæ—¶çš„å“ˆå¸ŒæŸ¥æ‰¾
+    // å¦‚æœåŠ¨ä½œé”®å€¼ä¸å­˜åœ¨æˆ–å‚æ•°ç±»å‹ä¸åŒ¹é…ï¼Œè¿”å›æ— æ•ˆçš„è°ƒç”¨å™¨
+    template<typename... Args>
+    ActionInvoker<KeyType, Args...> AcquireInvoker(const KeyType& actionKey)
+    {
+        using ImplType = typename ActionInvoker<KeyType, Args...>::template InvokerImpl<ActionProcessorWrapper<Args...>>;
+
+        if constexpr (AllowOverload)
+        {
+            // é‡è½½æ¨¡å¼ï¼šæŸ¥æ‰¾åŒ¹é…çš„å¤„ç†å™¨
+            auto it = actions_.find(actionKey);
+            if (it == actions_.end())
+            {
+                return ActionInvoker<KeyType, Args...>();
+            }
+
+            std::string argTypes = type_check::get_template_args_info<Args...>();
+            size_t argCount = sizeof...(Args);
+
+            for (auto& wrapper : it->second)
+            {
+                if (wrapper->CheckArgsMatch(argTypes, argCount))
+                {
+                    auto* processor = static_cast<ActionProcessorWrapper<Args...>*>(wrapper.get());
+                    auto impl = std::make_shared<ImplType>(processor);
+                    return ActionInvoker<KeyType, Args...>(std::move(impl), actionKey);
+                }
+            }
+
+            return ActionInvoker<KeyType, Args...>();
+        }
+        else
+        {
+            // éé‡è½½æ¨¡å¼
+            auto it = actions_.find(actionKey);
+            if (it == actions_.end())
+            {
+                return ActionInvoker<KeyType, Args...>();
+            }
+
+            std::string expectedArgTypes = type_check::get_template_args_info<Args...>();
+            size_t expectedArgCount = sizeof...(Args);
+
+            if (it->second->GetArgTypes() != expectedArgTypes ||
+                it->second->GetArgCount() != expectedArgCount)
+            {
+                return ActionInvoker<KeyType, Args...>();
+            }
+
+            auto* processor = static_cast<ActionProcessorWrapper<Args...>*>(it->second.get());
+            auto impl = std::make_shared<ImplType>(processor);
+            return ActionInvoker<KeyType, Args...>(std::move(impl), actionKey);
+        }
+    }
+
+    // æ·»åŠ å…¨å±€åŠ¨ä½œç›‘å¬å™¨
     uint64_t AddGlobalCompletionListener(GlobalCompletionListener listener,
         const std::string& description = "",
         int priority = 0)
@@ -1435,7 +1575,7 @@ public:
         uint64_t id = nextGlobalListenerId_++;
         globalCompletionListeners_.push_back({ std::move(listener), description, priority, id });
 
-        // °´ÓÅÏÈ¼¶ÅÅĞò
+        // æŒ‰ä¼˜å…ˆçº§æ’åº
         std::sort(globalCompletionListeners_.begin(), globalCompletionListeners_.end(),
             [](const GlobalListenerInfo& a, const GlobalListenerInfo& b)
             {
@@ -1445,7 +1585,7 @@ public:
         return id;
     }
 
-    // ÒÆ³ıÈ«¾Ö¶¯×÷¼àÌıÆ÷
+    // ç§»é™¤å…¨å±€åŠ¨ä½œç›‘å¬å™¨
     bool RemoveGlobalCompletionListener(uint64_t listenerId)
     {
         auto it = std::find_if(globalCompletionListeners_.begin(), globalCompletionListeners_.end(),
@@ -1463,7 +1603,7 @@ public:
     }
 
 
-    // Ö´ĞĞ¶¯×÷
+    // æ‰§è¡ŒåŠ¨ä½œ
     template<typename... Args>
     ActionResult Execute(const KeyType& actionKey, Args&&... args)
     {
@@ -1473,34 +1613,34 @@ public:
             ActionResult result;
             result.errorMessage = "Action not found or no matching parameter types";
 
-            // ¼´Ê¹ÕÒ²»µ½action£¬Ò²Í¨ÖªÈ«¾Ö¼àÌıÆ÷
+            // å³ä½¿æ‰¾ä¸åˆ°actionï¼Œä¹Ÿé€šçŸ¥å…¨å±€ç›‘å¬å™¨
             NotifyGlobalListeners(actionKey, result);
             return result;
         }
 
-        // ×¼±¸²ÎÊıÖ¸ÕëÊı×é£¨Ö§³ÖÍêÃÀ×ª·¢£©
+        // å‡†å¤‡å‚æ•°æŒ‡é’ˆæ•°ç»„ï¼ˆæ”¯æŒå®Œç¾è½¬å‘ï¼‰
         void* argPointers[sizeof...(Args) + 1] = {};
 
-        // ×¼±¸²ÎÊıÖ¸Õë
+        // å‡†å¤‡å‚æ•°æŒ‡é’ˆ
         PrepareArgPointers(argPointers, std::tie(args...), std::index_sequence_for<Args...>{});
 
-        // Ö´ĞĞaction
+        // æ‰§è¡Œaction
         ActionResult result = wrapper->ExecuteWithForward(argPointers);
 
-        // Í¨ÖªÈ«¾Ö¼àÌıÆ÷
+        // é€šçŸ¥å…¨å±€ç›‘å¬å™¨
         NotifyGlobalListeners(actionKey, result);
 
         return result;
     }
 
-    // Ìí¼Ó²ÎÊıÖ¸Õë×¼±¸¸¨Öúº¯Êı
+    // æ·»åŠ å‚æ•°æŒ‡é’ˆå‡†å¤‡è¾…åŠ©å‡½æ•°
     template<typename Tuple, size_t... Is>
     void PrepareArgPointers(void* pointers[], Tuple&& tuple, std::index_sequence<Is...>)
     {
         ((pointers[Is] = (void*)(&std::get<Is>(tuple))), ...);
     }
 
-    // ÒÆ³ı´¦ÀíÆ÷
+    // ç§»é™¤å¤„ç†å™¨
     bool RemoveHandler(const ActionHandle<KeyType>& handle)
     {
         auto it = handleToActionMap_.find(handle);
@@ -1510,25 +1650,25 @@ public:
         }
 
         const auto& actionKey = it->second;
-        
+
         if constexpr (AllowOverload)
         {
-            // ÔÊĞíÖØÔØÄ£Ê½£º±éÀúËùÓĞ°ü×°Æ÷
+            // å…è®¸é‡è½½æ¨¡å¼ï¼šéå†æ‰€æœ‰åŒ…è£…å™¨
             auto actionIt = actions_.find(actionKey);
             if (actionIt == actions_.end())
             {
                 return false;
             }
-            
+
             for (auto& wrapper : actionIt->second)
             {
                 if (wrapper->RemoveHandler(handle))
                 {
-                    // Èç¹û°ü×°Æ÷Îª¿Õ£¬ÒÆ³ıËü
+                    // å¦‚æœåŒ…è£…å™¨ä¸ºç©ºï¼Œç§»é™¤å®ƒ
                     auto newEnd = std::remove_if(actionIt->second.begin(), actionIt->second.end(),
                         [](const auto& w) { return w->GetTotalHandlers() == 0; });
                     actionIt->second.erase(newEnd, actionIt->second.end());
-                    
+
                     handleToActionMap_.erase(it);
                     return true;
                 }
@@ -1537,7 +1677,7 @@ public:
         }
         else
         {
-            // ²»ÔÊĞíÖØÔØÄ£Ê½
+            // ä¸å…è®¸é‡è½½æ¨¡å¼
             auto actionIt = actions_.find(actionKey);
             if (actionIt == actions_.end())
             {
@@ -1554,13 +1694,13 @@ public:
         }
     }
 
-    // ¼ì²éÊÇ·ñ´æÔÚ
+    // æ£€æŸ¥æ˜¯å¦å­˜åœ¨
     bool HasAction(const KeyType& actionKey) const
     {
         return actions_.find(actionKey) != actions_.end();
     }
 
-    // ¼ì²éÊÇ·ñ´æÔÚÌØ¶¨²ÎÊıÀàĞÍµÄ´¦ÀíÆ÷
+    // æ£€æŸ¥æ˜¯å¦å­˜åœ¨ç‰¹å®šå‚æ•°ç±»å‹çš„å¤„ç†å™¨
     template<typename... Args>
     bool HasActionWithArgs(const KeyType& actionKey) const
     {
@@ -1572,10 +1712,10 @@ public:
 
         if constexpr (AllowOverload)
         {
-            // ÔÊĞíÖØÔØ£º¼ì²éÊÇ·ñÓĞÆ¥ÅäµÄ°ü×°Æ÷
+            // å…è®¸é‡è½½ï¼šæ£€æŸ¥æ˜¯å¦æœ‰åŒ¹é…çš„åŒ…è£…å™¨
             std::string argTypes = type_check::get_template_args_info<Args...>();
             size_t argCount = sizeof...(Args);
-            
+
             for (const auto& wrapper : it->second)
             {
                 if (wrapper->CheckArgsMatch(argTypes, argCount))
@@ -1587,22 +1727,22 @@ public:
         }
         else
         {
-            // ²»ÔÊĞíÖØÔØ£º¼ì²é²ÎÊıÀàĞÍÊÇ·ñÆ¥Åä
+            // ä¸å…è®¸é‡è½½ï¼šæ£€æŸ¥å‚æ•°ç±»å‹æ˜¯å¦åŒ¹é…
             std::string expectedArgTypes = type_check::get_template_args_info<Args...>();
             size_t expectedArgCount = sizeof...(Args);
-            
-            return (it->second->GetArgTypes() == expectedArgTypes && 
+
+            return (it->second->GetArgTypes() == expectedArgTypes &&
                    it->second->GetArgCount() == expectedArgCount);
         }
     }
 
-    // »ñÈ¡È«¾Ö¼àÌıÆ÷ÊıÁ¿
+    // è·å–å…¨å±€ç›‘å¬å™¨æ•°é‡
     size_t GetGlobalCompletionListenerCount() const
     {
         return globalCompletionListeners_.size();
     }
 
-    // »ñÈ¡¶¯×÷µÄ´¦ÀíÆ÷±äÌåÊıÁ¿£¨¶ÔÓÚÔÊĞíÖØÔØµÄÇé¿ö£©
+    // è·å–åŠ¨ä½œçš„å¤„ç†å™¨å˜ä½“æ•°é‡ï¼ˆå¯¹äºå…è®¸é‡è½½çš„æƒ…å†µï¼‰
     size_t GetActionVariantCount(const KeyType& actionKey) const
     {
         auto it = actions_.find(actionKey);
@@ -1610,7 +1750,7 @@ public:
         {
             return 0;
         }
-        
+
         if constexpr (AllowOverload)
         {
             return it->second.size();
@@ -1621,33 +1761,33 @@ public:
         }
     }
 
-    // Çå¿ÕÈ«¾Ö¼àÌıÆ÷
+    // æ¸…ç©ºå…¨å±€ç›‘å¬å™¨
     void ClearGlobalCompletionListeners()
     {
         globalCompletionListeners_.clear();
     }
 
-    // Çå¿Õ¼àÌıÆ÷
+    // æ¸…ç©ºç›‘å¬å™¨
     void Clear()
     {
         actions_.clear();
         handleToActionMap_.clear();
-        globalCompletionListeners_.clear();  // ĞÂÔö
+        globalCompletionListeners_.clear();  // æ–°å¢
         nextHandleId_ = 1;
-        nextGlobalListenerId_ = 1;  // ĞÂÔö
+        nextGlobalListenerId_ = 1;  // æ–°å¢
     }
 
-    // Í³¼ÆĞÅÏ¢·½·¨
+    // ç»Ÿè®¡ä¿¡æ¯æ–¹æ³•
     std::string GetStatistics() const
     {
         std::stringstream ss;
         ss << "=== ActionSystem Statistics ===\n";
         ss << "Mode: " << (AllowOverload ? "Allow Overload" : "No Overload") << "\n";
-        
+
         size_t totalActions = 0;
         size_t totalVariants = 0;
         size_t totalHandlers = handleToActionMap_.size();
-        
+
         for (const auto& entry : actions_)
         {
             totalActions++;
@@ -1668,7 +1808,7 @@ public:
                 }
             }
         }
-        
+
         ss << "Total Actions: " << totalActions << "\n";
         ss << "Total Variants: " << totalVariants << "\n";
         ss << "Total Handlers: " << totalHandlers << "\n";
@@ -1677,7 +1817,7 @@ public:
         for (const auto& [actionKey, wrapperOrVector] : actions_)
         {
             ss << "Action Key: " << actionKey << "\n";
-            
+
             if constexpr (AllowOverload)
             {
                 for (const auto& wrapper : wrapperOrVector)
@@ -1702,11 +1842,11 @@ public:
     }
 };
 
-// Îª³£ÓÃ¼üÀàĞÍÌá¹©±ğÃû£¨±£³ÖÏòºó¼æÈİ£¬Ä¬ÈÏ²»ÔÊĞíÖØÔØ£©
+// ä¸ºå¸¸ç”¨é”®ç±»å‹æä¾›åˆ«åï¼ˆä¿æŒå‘åå…¼å®¹ï¼Œé»˜è®¤ä¸å…è®¸é‡è½½ï¼‰
 using StringActionSystem = ActionSystem<std::string>;
 using IntActionSystem = ActionSystem<int>;
-using EnumActionSystem = ActionSystem<int>; // ÓÃÓÚÃ¶¾ÙÀàĞÍ
+using EnumActionSystem = ActionSystem<int>; // ç”¨äºæšä¸¾ç±»å‹
 
-// ĞÂÔö£ºÔÊĞíÖØÔØµÄ±ğÃû
+// æ–°å¢ï¼šå…è®¸é‡è½½çš„åˆ«å
 using StringActionSystemOverload = ActionSystem<std::string, true>;
 using IntActionSystemOverload = ActionSystem<int, true>;
