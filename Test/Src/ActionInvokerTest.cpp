@@ -37,8 +37,18 @@ TEST_CASE("ActionInvoker - Basic functionality", "[ActionSystem][ActionInvoker]"
 
     SECTION("Acquire invoker for non-existent action")
     {
+        // 新行为：动作不存在时会创建动作
         auto invoker = system.AcquireInvoker<int>("non_existent");
-        REQUIRE(invoker.isValid() == false);
+        REQUIRE(invoker.isValid() == true);
+
+        // 可以添加处理器并执行
+        int executed = 0;
+        system.AddSequentialProcessor("non_existent",
+            [&executed](int value) { executed = value; }, "Processor");
+
+        auto result = invoker.Execute(99);
+        REQUIRE(result.success == true);
+        REQUIRE(executed == 99);
     }
 
     SECTION("Acquire invoker with wrong parameter type")
@@ -189,20 +199,20 @@ TEST_CASE("ActionInvoker - Lifecycle", "[ActionSystem][ActionInvoker]")
     StringActionSystem system;
     std::string actionKey = "lifecycle_test";
 
-    SECTION("Invoker remains valid after processor added")
+    SECTION("Invoker created for non-existent action remains valid")
     {
+        // 新行为：动作不存在时创建动作，调用器立即有效
         auto invoker = system.AcquireInvoker<int>(actionKey);
-        REQUIRE(invoker.isValid() == false);
+        REQUIRE(invoker.isValid() == true);
 
         // Add processor
-        system.AddSequentialProcessor(actionKey, [](int) {}, "Processor");
+        int executed = 0;
+        system.AddSequentialProcessor(actionKey, [&executed](int x) { executed = x; }, "Processor");
 
-        // Old invoker still invalid (need to re-acquire)
-        REQUIRE(invoker.isValid() == false);
-
-        // Acquire new invoker
-        auto newInvoker = system.AcquireInvoker<int>(actionKey);
-        REQUIRE(newInvoker.isValid() == true);
+        // 调用器仍然有效，可以直接执行
+        auto result = invoker.Execute(42);
+        REQUIRE(result.success == true);
+        REQUIRE(executed == 42);
     }
 
     SECTION("Multiple invokers for same action")
@@ -277,5 +287,118 @@ TEST_CASE("ActionInvoker - Complete handler pipeline", "[ActionSystem][ActionInv
         REQUIRE(validationCount == 0);  // Validation listener not called
         REQUIRE(processorCount == 0);
         REQUIRE(completionCount == 0);
+    }
+}
+
+// Test ActionInvoker creates new actions when they don't exist
+TEST_CASE("ActionInvoker - Create actions on demand", "[ActionSystem][ActionInvoker]")
+{
+    SECTION("Non-overload mode: Create new action when not exists")
+    {
+        StringActionSystem system;
+        std::string actionKey = "new_action";
+
+        // Action doesn't exist yet
+        auto invoker = system.AcquireInvoker<int>(actionKey);
+        REQUIRE(invoker.isValid() == true);
+
+        // Add processor and execute through invoker
+        int executed = 0;
+        system.AddSequentialProcessor(actionKey,
+            [&executed](int value) { executed = value; }, "Processor");
+
+        auto result = invoker.Execute(42);
+        REQUIRE(result.success == true);
+        REQUIRE(executed == 42);
+    }
+
+    SECTION("Non-overload mode: Return invalid for type mismatch")
+    {
+        StringActionSystem system;
+        std::string actionKey = "type_mismatch_action";
+
+        // Create action with int parameter
+        auto invoker1 = system.AcquireInvoker<int>(actionKey);
+        REQUIRE(invoker1.isValid() == true);
+
+        // Try to acquire with different parameter type
+        auto invoker2 = system.AcquireInvoker<std::string>(actionKey);
+        REQUIRE(invoker2.isValid() == false);
+
+        // Original invoker still works
+        int executed = 0;
+        system.AddSequentialProcessor(actionKey,
+            [&executed](int value) { executed = value; }, "Processor");
+
+        auto result = invoker1.Execute(99);
+        REQUIRE(result.success == true);
+        REQUIRE(executed == 99);
+    }
+
+    SECTION("Overload mode: Create new overload for type mismatch")
+    {
+        StringActionSystemOverload system;
+        std::string actionKey = "overload_action";
+
+        int intExecuted = 0;
+        int stringExecuted = 0;
+
+        // Create action with int parameter
+        auto invoker1 = system.AcquireInvoker<int>(actionKey);
+        REQUIRE(invoker1.isValid() == true);
+
+        // Create overload with string parameter
+        auto invoker2 = system.AcquireInvoker<const std::string&>(actionKey);
+        REQUIRE(invoker2.isValid() == true);
+
+        // Both should work independently
+        system.AddSequentialProcessor(actionKey,
+            [&intExecuted](int value) { intExecuted = value; }, "Int processor");
+
+        system.AddSequentialProcessor(actionKey,
+            [&stringExecuted](const std::string& s) { stringExecuted = s.length(); }, "String processor");
+
+        auto result1 = invoker1.Execute(42);
+        REQUIRE(result1.success == true);
+        REQUIRE(intExecuted == 42);
+        REQUIRE(stringExecuted == 0);
+
+        auto result2 = invoker2.Execute(std::string("hello"));
+        REQUIRE(result2.success == true);
+        REQUIRE(stringExecuted == 5);
+        // Int processor not called for string overload
+        REQUIRE(intExecuted == 42);
+    }
+
+    SECTION("Pre-create actions before adding handlers")
+    {
+        StringActionSystem system;
+
+        // Pre-create invokers (actions don't have any handlers yet)
+        auto invoker1 = system.AcquireInvoker<int>("action1");
+        auto invoker2 = system.AcquireInvoker<double>("action2");
+        auto invoker3 = system.AcquireInvoker<const std::string&>("action3");
+
+        REQUIRE(invoker1.isValid() == true);
+        REQUIRE(invoker2.isValid() == true);
+        REQUIRE(invoker3.isValid() == true);
+
+        // Now add handlers
+        int count1 = 0, count2 = 0, count3 = 0;
+        system.AddSequentialProcessor("action1", [&count1](int x) { count1 = x; }, "P1");
+        system.AddSequentialProcessor("action2", [&count2](double x) { count2 = (int)x; }, "P2");
+        system.AddSequentialProcessor("action3", [&count3](const std::string& s) { count3 = s.length(); }, "P3");
+
+        // Execute through pre-acquired invokers (no hash lookup!)
+        auto r1 = invoker1.Execute(10);
+        auto r2 = invoker2.Execute(20.5);
+        auto r3 = invoker3.Execute(std::string("hello"));
+
+        REQUIRE(r1.success == true);
+        REQUIRE(r2.success == true);
+        REQUIRE(r3.success == true);
+        REQUIRE(count1 == 10);
+        REQUIRE(count2 == 20);
+        REQUIRE(count3 == 5);
     }
 }

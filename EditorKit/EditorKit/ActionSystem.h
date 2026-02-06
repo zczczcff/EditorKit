@@ -1525,7 +1525,16 @@ public:
             auto it = actions_.find(actionKey);
             if (it == actions_.end())
             {
-                return ActionInvoker<KeyType, Args...>();
+                // 动作不存在，创建新的动作容器
+                auto newWrapper = std::make_unique<ActionProcessorWrapper<Args...>>();
+                auto* processor = newWrapper.get();
+
+                std::vector<std::unique_ptr<IActionProcessorWrapper>> wrappers;
+                wrappers.push_back(std::move(newWrapper));
+                actions_[actionKey] = std::move(wrappers);
+
+                auto impl = std::make_shared<ImplType>(processor);
+                return ActionInvoker<KeyType, Args...>(std::move(impl), actionKey);
             }
 
             std::string argTypes = type_check::get_template_args_info<Args...>();
@@ -1541,7 +1550,13 @@ public:
                 }
             }
 
-            return ActionInvoker<KeyType, Args...>();
+            // 动作存在但类型不匹配，在重载模式下创建新的重载
+            auto newWrapper = std::make_unique<ActionProcessorWrapper<Args...>>();
+            auto* processor = newWrapper.get();
+            it->second.push_back(std::move(newWrapper));
+
+            auto impl = std::make_shared<ImplType>(processor);
+            return ActionInvoker<KeyType, Args...>(std::move(impl), actionKey);
         }
         else
         {
@@ -1549,7 +1564,14 @@ public:
             auto it = actions_.find(actionKey);
             if (it == actions_.end())
             {
-                return ActionInvoker<KeyType, Args...>();
+                // 动作不存在，创建新的动作容器
+                auto newWrapper = std::make_unique<ActionProcessorWrapper<Args...>>();
+                auto* processor = newWrapper.get();
+
+                actions_[actionKey] = std::move(newWrapper);
+
+                auto impl = std::make_shared<ImplType>(processor);
+                return ActionInvoker<KeyType, Args...>(std::move(impl), actionKey);
             }
 
             std::string expectedArgTypes = type_check::get_template_args_info<Args...>();
@@ -1558,6 +1580,7 @@ public:
             if (it->second->GetArgTypes() != expectedArgTypes ||
                 it->second->GetArgCount() != expectedArgCount)
             {
+                // 动作存在但类型不匹配，在非重载模式下返回无效调用器
                 return ActionInvoker<KeyType, Args...>();
             }
 
