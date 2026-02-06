@@ -2,6 +2,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <chrono>
+#include <iomanip>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_session.hpp>
 #include <EditorKit/ActionSystem.h>
@@ -400,5 +402,311 @@ TEST_CASE("ActionInvoker - Create actions on demand", "[ActionSystem][ActionInvo
         REQUIRE(count1 == 10);
         REQUIRE(count2 == 20);
         REQUIRE(count3 == 5);
+    }
+}
+
+// Performance test: Compare system.Execute vs invoker.Execute overhead
+TEST_CASE("ActionInvoker - Performance benchmark", "[ActionSystem][ActionInvoker][Performance]")
+{
+    using Clock = std::chrono::high_resolution_clock;
+    using Duration = std::chrono::duration<double, std::micro>;
+
+    // Helper function to print performance results
+    auto printResult = [](const std::string& name, double totalTimeUs, size_t iterations,
+        size_t expectedCount, size_t actualCount)
+    {
+        double avgTimeNs = (totalTimeUs * 1000.0) / iterations;
+        double throughput = (iterations / totalTimeUs) * 1000.0; // ops per ms
+
+        std::cout << "\n  " << name << ":\n";
+        std::cout << "    Total time: " << std::fixed << std::setprecision(2) << totalTimeUs << " us\n";
+        std::cout << "    Average time: " << std::fixed << std::setprecision(2) << avgTimeNs << " ns/call\n";
+        std::cout << "    Throughput: " << std::fixed << std::setprecision(0) << throughput << " calls/ms\n";
+        std::cout << "    Verification: " << actualCount << "/" << expectedCount << " executions\n";
+    };
+
+    SECTION("Benchmark: Single parameter action")
+    {
+        const size_t iterations = 1000000;  // 1 million iterations
+        StringActionSystem system;
+        std::string actionKey = "perf_benchmark";
+
+        // Setup processors
+        size_t systemExecuteCount = 0;
+        size_t invokerExecuteCount = 0;
+
+        system.AddSequentialProcessor(actionKey,
+            [&systemExecuteCount](int value) { systemExecuteCount += value; },
+            "System processor");
+
+        // Method 1: Real-time execution (system.Execute - with hash lookup)
+        auto systemStart = Clock::now();
+        for (size_t i = 0; i < iterations; ++i)
+        {
+            system.Execute(actionKey, 1);
+        }
+        auto systemEnd = Clock::now();
+        Duration systemDuration = systemEnd - systemStart;
+
+        // Method 2: Invoker cache (invoker.Execute - no hash lookup)
+        auto invoker = system.AcquireInvoker<int>(actionKey);
+        REQUIRE(invoker.isValid() == true);
+
+        // Add different processor for method 2 to distinguish counts
+        std::string actionKey2 = "perf_benchmark2";
+        system.AddSequentialProcessor(actionKey2,
+            [&invokerExecuteCount](int value) { invokerExecuteCount += value; },
+            "Invoker processor");
+
+        auto invoker2 = system.AcquireInvoker<int>(actionKey2);
+        REQUIRE(invoker2.isValid() == true);
+
+        auto invokerStart = Clock::now();
+        for (size_t i = 0; i < iterations; ++i)
+        {
+            invoker2.Execute(1);
+        }
+        auto invokerEnd = Clock::now();
+        Duration invokerDuration = invokerEnd - invokerStart;
+
+        // Print results
+        std::cout << "\n=== Single Parameter Action Performance Benchmark (" << iterations << " iterations) ===";
+        printResult("system.Execute (real-time, with hash lookup)",
+            systemDuration.count(), iterations, iterations, systemExecuteCount);
+        printResult("invoker.Execute (cached, no hash lookup)",
+            invokerDuration.count(), iterations, iterations, invokerExecuteCount);
+
+        // Calculate performance improvement
+        double speedup = systemDuration.count() / invokerDuration.count();
+        double improvement = ((systemDuration.count() - invokerDuration.count()) / systemDuration.count()) * 100.0;
+
+        std::cout << "\n  Performance improvement:\n";
+        std::cout << "    Invoker cache is " << std::fixed << std::setprecision(2)
+            << speedup << "x faster\n";
+        std::cout << "    Time saved: " << std::fixed << std::setprecision(1)
+            << improvement << "%\n";
+
+        // Verify execution counts
+        REQUIRE(systemExecuteCount == iterations);
+        REQUIRE(invokerExecuteCount == iterations);
+    }
+
+    SECTION("Benchmark: Multi-parameter overload action")
+    {
+        const size_t iterations = 500000;  // 500k iterations
+        StringActionSystemOverload system;
+        std::string actionKey = "overload_perf";
+
+        // Setup multiple overload processors
+        size_t intCount = 0;
+        size_t stringCount = 0;
+        size_t multiCount = 0;
+
+        system.AddSequentialProcessor(actionKey,
+            [&intCount](int x) { intCount += x; }, "Int processor");
+
+        system.AddSequentialProcessor(actionKey,
+            [&stringCount](const std::string& s) { stringCount += s.length(); }, "String processor");
+
+        system.AddSequentialProcessor(actionKey,
+            [&multiCount](int a, const std::string& b) { multiCount += a + b.length(); }, "Multi processor");
+
+        // Method 1: Real-time execution
+        auto systemStart = Clock::now();
+        for (size_t i = 0; i < iterations; ++i)
+        {
+            system.Execute(actionKey, 1);
+            system.Execute(actionKey, std::string("x"));
+            system.Execute(actionKey, 1, std::string("x"));
+        }
+        auto systemEnd = Clock::now();
+        Duration systemDuration = systemEnd - systemStart;
+
+        // Method 2: Invoker cache
+        auto intInvoker = system.AcquireInvoker<int>(actionKey);
+        auto stringInvoker = system.AcquireInvoker<const std::string&>(actionKey);
+        auto multiInvoker = system.AcquireInvoker<int, const std::string&>(actionKey);
+
+        REQUIRE(intInvoker.isValid() == true);
+        REQUIRE(stringInvoker.isValid() == true);
+        REQUIRE(multiInvoker.isValid() == true);
+
+        auto invokerStart = Clock::now();
+        for (size_t i = 0; i < iterations; ++i)
+        {
+            intInvoker.Execute(1);
+            stringInvoker.Execute(std::string("x"));
+            multiInvoker.Execute(1, std::string("x"));
+        }
+        auto invokerEnd = Clock::now();
+        Duration invokerDuration = invokerEnd - invokerStart;
+
+        // Print results
+        std::cout << "\n=== Multi-Parameter Overload Action Benchmark (3 overloads x " << iterations << " iterations) ===";
+        printResult("system.Execute (real-time)",
+            systemDuration.count(), iterations * 3, iterations * 3, intCount + stringCount + multiCount);
+        printResult("invoker.Execute (cached)",
+            invokerDuration.count(), iterations * 3, iterations * 3, intCount + stringCount + multiCount);
+
+        double speedup = systemDuration.count() / invokerDuration.count();
+        double improvement = ((systemDuration.count() - invokerDuration.count()) / systemDuration.count()) * 100.0;
+
+        std::cout << "\n  Performance improvement:\n";
+        std::cout << "    Invoker cache is " << std::fixed << std::setprecision(2)
+            << speedup << "x faster\n";
+        std::cout << "    Time saved: " << std::fixed << std::setprecision(1)
+            << improvement << "%\n";
+    }
+
+    SECTION("Benchmark: Complex action (with validators and listeners)")
+    {
+        const size_t iterations = 200000;  // 200k iterations
+        StringActionSystem system;
+
+        // Setup for system.Execute test
+        std::string actionKey1 = "complex_perf1";
+        size_t triggerCount1 = 0;
+        size_t processorCount1 = 0;
+        size_t completionCount1 = 0;
+
+        system.AddTriggerListener(actionKey1,
+            [&triggerCount1](int value) { triggerCount1 += value; },
+            "Trigger listener");
+
+        system.AddValidator(actionKey1,
+            [](int value) -> bool { return value > 0; },
+            "Positive validator");
+
+        system.AddSequentialProcessor(actionKey1,
+            [&processorCount1](int value) { processorCount1 += value; },
+            "Processor");
+
+        system.AddCompletionListener(actionKey1,
+            [&completionCount1](int value) { completionCount1 += value; },
+            "Completion listener");
+
+        // Method 1: Real-time execution
+        auto systemStart = Clock::now();
+        for (size_t i = 0; i < iterations; ++i)
+        {
+            system.Execute(actionKey1, 1);
+        }
+        auto systemEnd = Clock::now();
+        Duration systemDuration = systemEnd - systemStart;
+
+        // Setup for invoker.Execute test
+        std::string actionKey2 = "complex_perf2";
+        size_t triggerCount2 = 0;
+        size_t processorCount2 = 0;
+        size_t completionCount2 = 0;
+
+        system.AddTriggerListener(actionKey2,
+            [&triggerCount2](int value) { triggerCount2 += value; },
+            "Trigger listener");
+
+        system.AddValidator(actionKey2,
+            [](int value) -> bool { return value > 0; },
+            "Positive validator");
+
+        system.AddSequentialProcessor(actionKey2,
+            [&processorCount2](int value) { processorCount2 += value; },
+            "Processor");
+
+        system.AddCompletionListener(actionKey2,
+            [&completionCount2](int value) { completionCount2 += value; },
+            "Completion listener");
+
+        // Method 2: Invoker cache
+        auto invoker = system.AcquireInvoker<int>(actionKey2);
+        auto invokerStart = Clock::now();
+        for (size_t i = 0; i < iterations; ++i)
+        {
+            invoker.Execute(1);
+        }
+        auto invokerEnd = Clock::now();
+        Duration invokerDuration = invokerEnd - invokerStart;
+
+        // Print results
+        std::cout << "\n=== Complex Action Benchmark (with validators+listeners, " << iterations << " iterations) ===";
+        printResult("system.Execute (real-time)",
+            systemDuration.count(), iterations, iterations, processorCount1);
+        printResult("invoker.Execute (cached)",
+            invokerDuration.count(), iterations, iterations, processorCount2);
+
+        double speedup = systemDuration.count() / invokerDuration.count();
+        double improvement = ((systemDuration.count() - invokerDuration.count()) / systemDuration.count()) * 100.0;
+
+        std::cout << "\n  Performance improvement:\n";
+        std::cout << "    Invoker cache is " << std::fixed << std::setprecision(2)
+            << speedup << "x faster\n";
+        std::cout << "    Time saved: " << std::fixed << std::setprecision(1)
+            << improvement << "%\n";
+
+        // Verify all handlers were called
+        REQUIRE(triggerCount1 == iterations);
+        REQUIRE(processorCount1 == iterations);
+        REQUIRE(completionCount1 == iterations);
+        REQUIRE(triggerCount2 == iterations);
+        REQUIRE(processorCount2 == iterations);
+        REQUIRE(completionCount2 == iterations);
+    }
+
+    SECTION("Micro-benchmark: Pure call overhead")
+    {
+        const size_t iterations = 10000000;  // 10 million iterations
+        StringActionSystem system;
+        std::string actionKey = "micro_perf";
+
+        volatile int sink = 0;  // Prevent compiler from optimizing away loop
+        system.AddSequentialProcessor(actionKey,
+            [&sink](int value) { sink += value; }, "Sink processor");
+
+        auto invoker = system.AcquireInvoker<int>(actionKey);
+        REQUIRE(invoker.isValid() == true);
+
+        // Warmup
+        for (int i = 0; i < 1000; ++i)
+        {
+            system.Execute(actionKey, 1);
+            invoker.Execute(1);
+        }
+
+        // Method 1: Real-time execution
+        sink = 0;
+        auto systemStart = Clock::now();
+        for (size_t i = 0; i < iterations; ++i)
+        {
+            system.Execute(actionKey, 1);
+        }
+        auto systemEnd = Clock::now();
+        Duration systemDuration = systemEnd - systemStart;
+
+        // Method 2: Invoker cache
+        sink = 0;
+        auto invokerStart = Clock::now();
+        for (size_t i = 0; i < iterations; ++i)
+        {
+            invoker.Execute(1);
+        }
+        auto invokerEnd = Clock::now();
+        Duration invokerDuration = invokerEnd - invokerStart;
+
+        // Print results
+        std::cout << "\n=== Micro-benchmark (pure call overhead, " << iterations << " iterations) ===";
+        printResult("system.Execute (real-time)",
+            systemDuration.count(), iterations, iterations, 0);
+        printResult("invoker.Execute (cached)",
+            invokerDuration.count(), iterations, iterations, 0);
+
+        double speedup = systemDuration.count() / invokerDuration.count();
+        double overheadNs = (systemDuration.count() - invokerDuration.count()) / iterations * 1000.0;
+
+        std::cout << "\n  Performance analysis:\n";
+        std::cout << "    Invoker cache is " << std::fixed << std::setprecision(2)
+            << speedup << "x faster\n";
+        std::cout << "    Hash lookup overhead: ~" << std::fixed << std::setprecision(2)
+            << overheadNs << " ns/call\n";
+
+        REQUIRE(sink > 0);  // Ensure loop was executed
     }
 }
